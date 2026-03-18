@@ -77,6 +77,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
     // Update asset status
     assetRecord.status = 'assigned';
     assetRecord.assignedTo = employee;
+    assetRecord.laptopAssignedDate = assignment.assignedDate;
     await assetRecord.save();
 
     await AuditLog.create({

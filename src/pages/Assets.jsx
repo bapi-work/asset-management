@@ -33,11 +33,6 @@ const Assets = () => {
     location: '',
     // New Fields
     priority: '',
-    employeeId: '',
-    companyClient: '',
-    mobileNumber: '',
-    internalMailId: '',
-    clientMailId: '',
     expressServiceCode: '',
     adapterSerialNumber: '',
     processor: '',
@@ -129,11 +124,6 @@ const Assets = () => {
         vendor: '',
         location: '',
         priority: '',
-        employeeId: '',
-        companyClient: '',
-        mobileNumber: '',
-        internalMailId: '',
-        clientMailId: '',
         expressServiceCode: '',
         adapterSerialNumber: '',
         processor: '',
@@ -422,41 +412,6 @@ const Assets = () => {
             />
             <input
               type="text"
-              placeholder="Employee ID"
-              value={formData.employeeId}
-              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Company/Client"
-              value={formData.companyClient}
-              onChange={(e) => setFormData({ ...formData, companyClient: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Mobile Number"
-              value={formData.mobileNumber}
-              onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Internal Mail ID"
-              value={formData.internalMailId}
-              onChange={(e) => setFormData({ ...formData, internalMailId: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Client Mail ID"
-              value={formData.clientMailId}
-              onChange={(e) => setFormData({ ...formData, clientMailId: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
               placeholder="Express Service Code"
               value={formData.expressServiceCode}
               onChange={(e) => setFormData({ ...formData, expressServiceCode: e.target.value })}
@@ -604,22 +559,22 @@ const Assets = () => {
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-950">
               <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Asset Tag</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Asset Model</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Location</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Asset Tag</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Asset Model</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Type</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Location</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Value</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {assets.map(asset => (
                 <tr key={asset._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{asset.assetTag}</td>
-                  <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{asset.name}</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm capitalize">{asset.type?.replace('_', ' ')}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium whitespace-nowrap">{asset.assetTag}</td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-200 whitespace-nowrap">{asset.name}</td>
+                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm capitalize whitespace-nowrap">{asset.type?.replace('_', ' ')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${asset.status === 'available' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
                       asset.status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                         asset.status === 'in_maintenance' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
@@ -628,13 +583,13 @@ const Assets = () => {
                       {asset.status === 'in_maintenance' ? 'SERVICE REQUEST' : asset.status?.replace('_', ' ').toUpperCase()}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">
+                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
                     {asset.location?.name || '-'}
                   </td>
-                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">
+                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium whitespace-nowrap">
                     {formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)}
                   </td>
-                  <td className="px-6 py-4 flex gap-3">
+                  <td className="px-6 py-4 flex gap-3 whitespace-nowrap">
                     <button
                       onClick={() => navigate(`/assets/${asset._id}`)}
                       className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"

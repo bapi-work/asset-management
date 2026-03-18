@@ -179,6 +179,7 @@ const Locations = () => {
                             <option value="AUD">AUD (A$)</option>
                             <option value="CAD">CAD (C$)</option>
                             <option value="JPY">JPY (¥)</option>
+                            <option value="PHP">PHP (₱)</option>
                             <option value="CNY">CNY (¥)</option>
                         </select>
                         <div className="md:col-span-2 flex gap-2">

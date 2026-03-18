@@ -135,7 +135,9 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
     });
 
     await asset.populate('location assignedTo createdBy', 'username');
-    res.json(asset);
+    const assetObj = asset.toObject();
+    assetObj.currentValue = asset.calculateDepreciation();
+    res.json(assetObj);
   } catch (error) {
     console.error('Update asset error:', error);
     res.status(500).json({ message: error.message });

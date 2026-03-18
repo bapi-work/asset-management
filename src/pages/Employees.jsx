@@ -20,7 +20,9 @@ const Employees = () => {
     department: '',
     designation: '',
     employmentType: 'full_time',
-    location: ''
+    location: '',
+    phone: '',
+    costCenter: ''
   });
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -81,7 +83,9 @@ const Employees = () => {
         department: '',
         designation: '',
         employmentType: 'full_time',
-        location: ''
+        location: '',
+        phone: '',
+        costCenter: ''
       });
       fetchEmployees(); // Ensure list is fresh
     } catch (err) {
@@ -103,10 +107,13 @@ const Employees = () => {
       department: employee.department || '',
       designation: employee.designation || '',
       employmentType: employee.employmentType || 'full_time',
-      location: employee.location?._id || employee.location || ''
+      location: employee.location?._id || employee.location || '',
+      phone: employee.phone || '',
+      costCenter: employee.costCenter || ''
     });
     setEditingId(employee._id);
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {
@@ -283,6 +290,20 @@ const Employees = () => {
               onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
               className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
             />
+            <input
+              type="text"
+              placeholder="Mobile Number"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+            />
+            <input
+              type="text"
+              placeholder="Cost Center"
+              value={formData.costCenter}
+              onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+            />
             <select
               value={formData.employmentType}
               onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
@@ -330,31 +351,31 @@ const Employees = () => {
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-950">
               <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">EMP ID</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Department</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Designation</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">EMP ID</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Name</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Email</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Department</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Designation</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Type</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {employees.map(employee => (
                 <tr key={employee._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{employee.employeeId}</td>
-                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">
+                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium whitespace-nowrap">{employee.employeeId}</td>
+                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium whitespace-nowrap">
                     {employee.firstName} {employee.lastName}
                   </td>
-                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{employee.email}</td>
-                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{employee.department || '-'}</td>
-                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{employee.designation || '-'}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.email}</td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.department || '-'}</td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.designation || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
                       {employee.employmentType.replace('_', ' ').toUpperCase()}
                     </span>
                   </td>
-                  <td className="px-6 py-4 flex gap-2">
+                  <td className="px-6 py-4 flex gap-2 whitespace-nowrap">
                     <button onClick={() => handleEdit(employee)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
                     <button onClick={() => handleDelete(employee._id)} className="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
                   </td>

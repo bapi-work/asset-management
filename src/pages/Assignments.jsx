@@ -139,7 +139,7 @@ const Assignments = () => {
               <option value="">Select Employee</option>
               {employees.map(emp => (
                 <option key={emp._id} value={emp._id}>
-                  {emp.firstName} {emp.lastName}
+                  {emp.employeeId ? `${emp.employeeId} - ` : ''}{emp.firstName} {emp.lastName}
                 </option>
               ))}
             </select>
@@ -174,11 +174,11 @@ const Assignments = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Asset</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Employee</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Date</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Asset</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Employee</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Date</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -192,13 +192,13 @@ const Assignments = () => {
               })
               .map(assignment => (
               <tr key={assignment._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-3 text-gray-900 dark:text-gray-100 font-medium">
+                <td className="px-6 py-3 text-gray-900 dark:text-gray-100 font-medium whitespace-nowrap">
                   {assignment.asset?.assetTag}
                 </td>
-                <td className="px-6 py-3 text-gray-900 dark:text-gray-100">
-                  {assignment.employee?.firstName} {assignment.employee?.lastName}
+                <td className="px-6 py-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  {assignment.employee?.employeeId ? `${assignment.employee.employeeId} - ` : ''}{assignment.employee?.firstName} {assignment.employee?.lastName}
                 </td>
-                <td className="px-6 py-3">
+                <td className="px-6 py-3 whitespace-nowrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     assignment.status === 'active' ? 'bg-blue-100 text-blue-800' :
                     assignment.status === 'returned' ? 'bg-gray-100 text-gray-800' :
@@ -207,10 +207,10 @@ const Assignments = () => {
                     {assignment.status}
                   </span>
                 </td>
-                <td className="px-6 py-3 text-gray-600 dark:text-gray-400">
+                <td className="px-6 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                   {new Date(assignment.assignedDate).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-3 flex gap-2">
+                <td className="px-6 py-3 flex gap-2 whitespace-nowrap">
                   {assignment.status === 'active' && ['admin', 'manager'].includes(user?.role) && (
                     <button
                       onClick={() => handleReturnAsset(assignment._id)}

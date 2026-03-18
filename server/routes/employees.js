@@ -20,7 +20,8 @@ router.get('/', authenticateToken, async (req, res) => {
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
-        { employeeId: { $regex: search, $options: 'i' } }
+        { employeeId: { $regex: search, $options: 'i' } },
+        { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: search, options: "i" } } }
       ];
     }
 
@@ -140,8 +141,11 @@ router.post('/bulk-upload/csv', authenticateToken, authorizeRole('admin', 'manag
     const uploadedEmployees = [];
     for (const item of data) {
       const getVal = (keys) => {
+        const itemKeys = Object.keys(item);
         for (const k of keys) {
-          if (item[k] !== undefined) return item[k];
+          const target = k.toLowerCase().replace(/\s/g, '');
+          const matchedKey = itemKeys.find(ik => ik.toLowerCase().replace(/\s/g, '') === target);
+          if (matchedKey && item[matchedKey] !== undefined) return item[matchedKey];
         }
         return undefined;
       };

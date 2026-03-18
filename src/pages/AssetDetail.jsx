@@ -103,9 +103,21 @@ const AssetDetail = () => {
     try {
       const response = await axios.put(`/api/assets/${id}`, { status: 'in_maintenance' });
       setAsset(response.data);
-      setFormData(prev => ({ ...prev, status: 'in_maintenance' }));
+      setFormData(response.data);
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      await axios.delete(`/api/assignments/${assignmentId}`);
+      setHistory(history.filter(a => a._id !== assignmentId));
+      fetchAssetDetail();
+    } catch (err) {
+      console.error('Failed to delete assignment:', err);
+      alert('Failed to delete assignment');
     }
   };
 
@@ -268,26 +280,6 @@ const AssetDetail = () => {
                       <input type="date" value={formData.laptopAssignedDate ? new Date(formData.laptopAssignedDate).toISOString().split('T')[0] : ''} onChange={(e) => setFormData({ ...formData, laptopAssignedDate: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Emp ID</label>
-                      <input type="text" value={formData.employeeId} onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Company/Client</label>
-                      <input type="text" value={formData.companyClient} onChange={(e) => setFormData({ ...formData, companyClient: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Mobile</label>
-                      <input type="text" value={formData.mobileNumber} onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Client Mail</label>
-                      <input type="text" value={formData.clientMailId} onChange={(e) => setFormData({ ...formData, clientMailId: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Internal Mail</label>
-                      <input type="text" value={formData.internalMailId} onChange={(e) => setFormData({ ...formData, internalMailId: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">Previous Owner</label>
                       <input type="text" value={formData.oldLoaner} onChange={(e) => setFormData({ ...formData, oldLoaner: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
@@ -375,7 +367,11 @@ const AssetDetail = () => {
                           <label className="block text-xs font-bold text-slate-500 mb-1">Damage Reason</label>
                           <input type="text" value={formData.damageReason || ''} onChange={(e) => setFormData({ ...formData, damageReason: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-1">
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Service Cost / Parts Amount</label>
+                          <input type="number" value={formData.serviceCost || ''} onChange={(e) => setFormData({ ...formData, serviceCost: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div className="md:col-span-1">
                           <label className="block text-xs font-bold text-slate-500 mb-1">Resolution (How was it fixed?)</label>
                           <input type="text" value={formData.serviceResolution || ''} onChange={(e) => setFormData({ ...formData, serviceResolution: e.target.value })} className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
@@ -422,20 +418,20 @@ const AssetDetail = () => {
                       <DetailItem label="Priority" value={asset.priority} color="text-blue-600 dark:text-blue-400" />
                       <DetailItem label="Location" value={asset.location?.name} />
 
-                      <DetailItem label="Emp ID" value={asset.employeeId} />
-                      <DetailItem label="Company" value={asset.companyClient} />
                       <DetailItem label="Assigned To" value={asset.assignedTo ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}` : 'Unassigned'} color={asset.assignedTo ? 'text-emerald-600' : 'text-slate-400'} />
-                      <DetailItem label="Mobile" value={asset.mobileNumber} />
-
                       <DetailItem label="Processor" value={asset.processor} />
                       <DetailItem label="RAM" value={asset.ram} />
                       <DetailItem label="Storage" value={asset.storage} />
                       <DetailItem label="Adapter S/N" value={asset.adapterSerialNumber} />
 
-                      <DetailItem label="Invoice No" value={asset.invoiceNo || asset.invoiceNumber} />
-                      <DetailItem label="Supplier" value={asset.supplierName || asset.vendor} />
-                      <DetailItem label="Value" value={formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)} color="text-blue-600 dark:text-blue-400 font-black" />
-                      <DetailItem label="Purchase Date" value={asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : '-'} />
+                      {user?.role !== 'employee' && (
+                        <>
+                          <DetailItem label="Invoice No" value={asset.invoiceNo || asset.invoiceNumber} />
+                          <DetailItem label="Supplier" value={asset.supplierName || asset.vendor} />
+                          <DetailItem label="Value" value={formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)} color="text-blue-600 dark:text-blue-400 font-black" />
+                          <DetailItem label="Purchase Date" value={asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : '-'} />
+                        </>
+                      )}
                     </div>
 
                     {/* Additional Details Section */}
@@ -452,8 +448,6 @@ const AssetDetail = () => {
                       <div className="space-y-4">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact & Forms</h4>
                         <div className="grid grid-cols-2 gap-4">
-                          <DetailItem label="Int. Mail" value={asset.internalMailId} fullWidth />
-                          <DetailItem label="Ext. Mail" value={asset.clientMailId} fullWidth />
                           <DetailItem label="Ack. Form" value={asset.acknowledgementForm} />
                         </div>
                       </div>
@@ -467,7 +461,7 @@ const AssetDetail = () => {
                           {asset.photoUrl && (
                             <div>
                               <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-bold mb-2">Main Photo</p>
-                              <img src={asset.photoUrl} alt="Asset" className="w-32 h-32 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                              <img src={asset.photoUrl} alt="Asset" onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }} className="w-32 h-32 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
                             </div>
                           )}
                           {!asset.photoUrl && <p className="text-sm text-slate-400 italic">No attachments</p>}
@@ -521,7 +515,8 @@ const AssetDetail = () => {
                       <div className="grid grid-cols-2 md:grid-cols-2 gap-y-10 gap-x-8">
                         <DetailItem label="Repair Type" value={asset.serviceType === 'OEM' ? 'In-Warranty (OEM)' : asset.serviceType === 'Local' ? 'Out-of-Warranty (Local Vendor)' : '-'} color="text-amber-600" />
                         <DetailItem label="Damaged Item" value={asset.damagedItem} />
-                        <DetailItem label="Damage Reason" value={asset.damageReason} fullWidth />
+                        <DetailItem label="Service Cost" value={asset.serviceCost ? formatCurrency(asset.serviceCost, asset.location?.currency) : '-'} color="text-blue-600 font-black" />
+                        <DetailItem label="Damage Reason" value={asset.damageReason} />
                         <DetailItem label="Resolution" value={asset.serviceResolution} fullWidth />
                       </div>
                     </div>
@@ -597,8 +592,9 @@ const AssetDetail = () => {
             </button>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Ownership Trail</h3>
+          {user?.role !== 'employee' && (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Ownership Trail</h3>
             <div className="space-y-6">
               {history.length === 0 ? (
                 <p className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center py-8">Initial Acquisition</p>
@@ -622,11 +618,15 @@ const AssetDetail = () => {
                         </span>
                       </div>
                     </div>
+                    {['admin', 'manager'].includes(user?.role) && (
+                      <button onClick={() => handleDeleteAssignment(assignment._id)} className="text-red-500 hover:text-red-700 p-2 text-xs font-bold uppercase tracking-widest self-start mt-1">Delete</button>
+                    )}
                   </div>
                 ))
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

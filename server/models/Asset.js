@@ -112,6 +112,7 @@ const assetSchema = new mongoose.Schema({
   damageReason: String,
   damagedItem: String,
   serviceResolution: String,
+  serviceCost: Number,
 
   // Attachments & Reports
   attachments: [{
@@ -154,7 +155,7 @@ assetSchema.methods.calculateDepreciation = function () {
 
   if (this.depreciationMethod === 'straight_line') {
     const monthlyDepreciation = (this.purchasePrice - (this.salvageValue || 0)) / totalMonths;
-    return this.purchasePrice - (monthlyDepreciation * monthsElapsed);
+    return Math.round(this.purchasePrice - (monthlyDepreciation * monthsElapsed));
   } else if (this.depreciationMethod === 'declining_balance') {
     const depreciaationRate = 2 / this.usefulLife;
     let value = this.purchasePrice;
@@ -162,10 +163,10 @@ assetSchema.methods.calculateDepreciation = function () {
     for (let i = 0; i < monthsElapsed; i++) {
       value -= value * monthlyRate;
     }
-    return Math.max(value, this.salvageValue || 0);
+    return Math.round(Math.max(value, this.salvageValue || 0));
   }
 
-  return this.purchasePrice;
+  return Math.round(this.purchasePrice);
 };
 
 export default mongoose.model('Asset', assetSchema);
