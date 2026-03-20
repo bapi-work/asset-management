@@ -52,7 +52,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Assign asset to employee (Check-Out)
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
-    const { asset, employee, notes } = req.body;
+    const { asset, employee, notes, assignedDate } = req.body;
 
     // Check if asset exists and is available
     const assetRecord = await Asset.findById(asset);
@@ -69,7 +69,8 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
       asset,
       employee,
       assignedBy: req.user.userId,
-      notes
+      notes,
+      assignedDate: assignedDate ? new Date(assignedDate) : new Date()
     });
 
     await assignment.save();

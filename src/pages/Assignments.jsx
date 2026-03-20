@@ -12,6 +12,7 @@ const Assignments = () => {
   const [formData, setFormData] = useState({
     asset: '',
     employee: '',
+    assignedDate: new Date().toISOString().split('T')[0],
     notes: ''
   });
   const [returnData, setReturnData] = useState({});
@@ -45,7 +46,7 @@ const Assignments = () => {
       const response = await axios.post('/api/assignments', formData);
       setAssignments([response.data, ...assignments]);
       setShowForm(false);
-      setFormData({ asset: '', employee: '', notes: '' });
+      setFormData({ asset: '', employee: '', assignedDate: new Date().toISOString().split('T')[0], notes: '' });
       fetchData();
     } catch (err) {
       console.error('Failed to assign asset:', err);
@@ -143,6 +144,13 @@ const Assignments = () => {
                 </option>
               ))}
             </select>
+            <input
+              type="date"
+              value={formData.assignedDate}
+              onChange={(e) => setFormData({ ...formData, assignedDate: e.target.value })}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              required
+            />
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}

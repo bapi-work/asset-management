@@ -113,7 +113,6 @@ const Employees = () => {
     });
     setEditingId(employee._id);
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {
@@ -240,9 +239,17 @@ const Employees = () => {
 
       {/* Create Form */}
       {showForm && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-6 animate-fade-in">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{editingId ? 'Edit Employee' : 'Create New Employee'}</h2>
-          <form onSubmit={handleSubmitRaw} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-6 animate-fade-in w-full max-w-4xl m-auto mt-10 mb-10">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingId ? 'Edit Employee' : 'Create New Employee'}</h2>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 pointer">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmitRaw} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
               placeholder="Employee ID"
@@ -342,6 +349,7 @@ const Employees = () => {
               </button>
             </div>
           </form>
+        </div>
         </div>
       )}
 

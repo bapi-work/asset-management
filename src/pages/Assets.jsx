@@ -565,6 +565,7 @@ const Assets = () => {
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Value</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Warranty</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               </tr>
             </thead>
@@ -588,6 +589,9 @@ const Assets = () => {
                   </td>
                   <td className="px-6 py-4 text-slate-900 dark:text-white font-medium whitespace-nowrap">
                     {formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)}
+                  </td>
+                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
+                    {asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : (asset.warrantyStatus === 'active' ? 'Active' : '-')}
                   </td>
                   <td className="px-6 py-4 flex gap-3 whitespace-nowrap">
                     <button

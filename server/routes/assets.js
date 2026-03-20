@@ -2,6 +2,7 @@ import express from 'express';
 import Asset from '../models/Asset.js';
 import Location from '../models/Location.js';
 import AuditLog from '../models/AuditLog.js';
+import Employee from '../models/Employee.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import qrcode from 'qrcode';
 import { stringify } from 'csv-stringify';
@@ -18,7 +19,19 @@ router.get('/', authenticateToken, async (req, res) => {
     if (status) filter.status = status;
     if (type) filter.type = { $regex: new RegExp(`^${type}$`, 'i') };
     if (location) filter.location = location;
-    if (assignedTo) filter.assignedTo = assignedTo;
+    
+    // For employee users, lock down queries to just their own assets
+    if (req.user.role === 'employee') {
+      const employee = await Employee.findOne({ user: req.user.userId });
+      if (employee) {
+        filter.assignedTo = employee._id;
+      } else {
+        // Unmapped employees should not see any assets
+        return res.json([]);
+      }
+    } else if (assignedTo) {
+      filter.assignedTo = assignedTo;
+    }
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -61,6 +74,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Asset not found' });
     }
 
+    if (req.user.role === 'employee') {
+      const employee = await Employee.findOne({ user: req.user.userId });
+      if (!employee || !asset.assignedTo || employee._id.toString() !== asset.assignedTo._id.toString()) {
+        return res.status(403).json({ message: 'Access denied to this asset' });
+      }
+    }
+
     const assetObj = asset.toObject();
     assetObj.currentValue = asset.calculateDepreciation();
 
@@ -94,7 +114,9 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
       entityName: asset.name
     });
 
-    const populatedAsset = await asset.populate('location createdBy', 'username');
+    await asset.populate('location');
+    await asset.populate('createdBy', 'username');
+    const populatedAsset = asset;
     res.status(201).json(populatedAsset);
   } catch (error) {
     console.error('Create asset error:', error);
@@ -134,7 +156,9 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
       changes: { before: oldData, after: asset.toObject() }
     });
 
-    await asset.populate('location assignedTo createdBy', 'username');
+    await asset.populate('location');
+    await asset.populate('assignedTo');
+    await asset.populate('createdBy', 'username');
     const assetObj = asset.toObject();
     assetObj.currentValue = asset.calculateDepreciation();
     res.json(assetObj);
@@ -183,7 +207,11 @@ router.post('/:id/notes', authenticateToken, async (req, res) => {
 
     await asset.save();
 
-    const populatedAsset = await asset.populate('location assignedTo createdBy notes.author', 'username');
+    await asset.populate('location');
+    await asset.populate('assignedTo');
+    await asset.populate('createdBy', 'username');
+    await asset.populate('notes.author', 'username');
+    const populatedAsset = asset;
     // Ensure currentValue is sent back
     const assetObj = populatedAsset.toObject();
     assetObj.currentValue = populatedAsset.calculateDepreciation();

@@ -54,6 +54,11 @@ const Icons = {
     <svg width="24" height="24" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     </svg>
+  ),
+  ServiceRequest: () => (
+    <svg width="20" height="20" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
   )
 };
 
@@ -64,6 +69,7 @@ const Sidebar = ({ user, onLogout, darkMode, settings }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/dashboard', roles: ['admin', 'manager', 'employee'] },
     { id: 'assets', label: 'Assets', icon: Icons.Assets, href: '/assets', roles: ['admin', 'manager', 'employee'] },
+    { id: 'service-requests', label: 'Service Requests', icon: Icons.ServiceRequest, href: '/assets?status=in_maintenance', roles: ['admin', 'manager', 'employee'] },
     { id: 'employees', label: 'Employees', icon: Icons.Employees, href: '/employees', roles: ['admin', 'manager'] },
     { id: 'locations', label: 'Locations', icon: Icons.Locations, href: '/locations', roles: ['admin', 'manager'] },
     { id: 'assignments', label: 'Assignments', icon: Icons.Assignments, href: '/assignments', roles: ['admin', 'manager', 'employee'] },
@@ -74,7 +80,18 @@ const Sidebar = ({ user, onLogout, darkMode, settings }) => {
   ];
 
   const visibleItems = menuItems.filter(item => item.roles.includes(user?.role));
-  const isActive = (href) => location.pathname === href;
+  const isActive = (href) => {
+    // Exact match for routes with query parameters (like Service Requests)
+    if (href.includes('?')) {
+      return location.pathname + location.search === href;
+    }
+    // If it's the base Assets route, ensure we aren't actually viewing Service Requests
+    if (href === '/assets') {
+      return location.pathname === '/assets' && !location.search.includes('status=in_maintenance');
+    }
+    // Default exact or prefix match logic for other routes
+    return location.pathname === href || (href !== '/' && location.pathname.startsWith(href + '/'));
+  };
   const primaryColor = settings?.primaryColor || '#2563eb';
 
   return (
