@@ -1,6 +1,7 @@
 import express from 'express';
 import Assignment from '../models/Assignment.js';
 import Asset from '../models/Asset.js';
+import Employee from '../models/Employee.js';
 import AuditLog from '../models/AuditLog.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
@@ -12,8 +13,18 @@ router.get('/', authenticateToken, async (req, res) => {
     const { status, employee, asset } = req.query;
     let filter = {};
 
+    if (req.user.role === 'employee') {
+      const empData = await Employee.findOne({ user: req.user.userId });
+      if (empData) {
+        filter.employee = empData._id;
+      } else {
+        filter._id = null; // Employee has no matching record
+      }
+    } else {
+      if (employee) filter.employee = employee;
+    }
+    
     if (status) filter.status = status;
-    if (employee) filter.employee = employee;
     if (asset) filter.asset = asset;
 
     const assignments = await Assignment.find(filter)
@@ -40,6 +51,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     if (!assignment) {
       return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    if (req.user.role === 'employee') {
+      const empData = await Employee.findOne({ user: req.user.userId });
+      if (!empData || assignment.employee._id.toString() !== empData._id.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
     }
 
     res.json(assignment);

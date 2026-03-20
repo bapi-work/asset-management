@@ -42,6 +42,7 @@ const Dashboard = ({ settings }) => {
   const [recentAssignments, setRecentAssignments] = useState([]);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     let mounted = true;
@@ -148,14 +149,16 @@ const Dashboard = ({ settings }) => {
       </div>
 
       {/* Secondary KPI Grid */}
+      {user?.role !== 'employee' && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard label="Total Employees" value={stats?.totalEmployees || 0} icon={<Icons.Person />} color="slate" to="/employees" />
         <StatCard label="Active Personnel" value={stats?.activeEmployees || 0} icon={<Icons.Check />} color="emerald" to="/employees" />
         <StatCard label="Registered Users" value={stats?.totalUsers || 0} icon={<Icons.Person />} color="indigo" to="/users" />
       </div>
+      )}
 
       {/* Depreciation Section */}
-      {depreciation && (
+      {depreciation && user?.role !== 'employee' && (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
           <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
             <span className="w-1 h-4 bg-blue-600 rounded-full"></span>

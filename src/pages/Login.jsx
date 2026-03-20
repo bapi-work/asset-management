@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const Login = ({ onLogin, settings }) => {
+const Login = ({ onLogin, settings, darkMode, onToggleDarkMode }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,8 +48,22 @@ const Login = ({ onLogin, settings }) => {
   const primaryColor = settings?.primaryColor || '#2563eb'; // Default blue-600
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 bg-slate-950 font-sans selection:bg-blue-600 selection:text-white"
+    <div className="min-h-screen flex items-center justify-center py-12 bg-slate-50 dark:bg-slate-950 font-sans selection:bg-blue-600 selection:text-white transition-colors duration-300 relative"
       style={{ '--primary-color': primaryColor }}>
+      
+      {/* Dark Mode Toggle */}
+      <button
+        onClick={onToggleDarkMode}
+        className="absolute top-6 right-6 p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow hover:shadow-md transition-all border border-slate-200 dark:border-slate-700"
+        title="Toggle Theme"
+      >
+        {darkMode ? (
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm5.657-9.193a1 1 0 00-1.414 0l-.707.707A1 1 0 005.05 13.536l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z" clipRule="evenodd" /></svg>
+        ) : (
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
+        )}
+      </button>
+
       <div className="w-full max-w-md px-6">
 
         {/* Logo & Header */}
@@ -63,35 +77,35 @@ const Login = ({ onLogin, settings }) => {
               </svg>
             </div>
           )}
-          <h1 className="text-2xl font-bold text-white tracking-tight mb-2">{settings?.companyName || 'Nexus Asset Manager'}</h1>
-          <p className="text-slate-400 text-sm">{settings?.headerText || 'Maintained by IT Operations'}</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">{settings?.companyName || 'Nexus Asset Manager'}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{settings?.headerText || 'Maintained by IT Operations'}</p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-8">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl dark:shadow-2xl p-8 transition-colors">
 
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-lg font-semibold text-white">Sign in</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sign in</h2>
             {loading && <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}></div>}
           </div>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-900/30 border border-red-900/50 rounded-lg flex items-center gap-3">
-              <svg width="20" height="20" className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-3">
+              <svg width="20" height="20" className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-red-200 text-sm">{error}</span>
+              <span className="text-red-700 dark:text-red-200 text-sm">{error}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-slate-300">Username</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Username</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); setError(''); }}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder-slate-600"
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder-slate-400 dark:placeholder-slate-600"
                 style={{ '--tw-ring-color': primaryColor }}
                 placeholder="Ex. admin"
                 required
@@ -100,14 +114,14 @@ const Login = ({ onLogin, settings }) => {
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="block text-sm font-medium text-slate-300">Password</label>
-                <button type="button" onClick={handleForgotPassword} className="text-xs text-blue-400 hover:text-blue-300 transition-colors" style={{ color: primaryColor }}>Forgot password?</button>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
+                <button type="button" onClick={handleForgotPassword} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-500 transition-colors" style={{ color: primaryColor }}>Forgot password?</button>
               </div>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder-slate-600"
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder-slate-400 dark:placeholder-slate-600"
                 style={{ '--tw-ring-color': primaryColor }}
                 placeholder="••••••••"
                 required
@@ -129,8 +143,8 @@ const Login = ({ onLogin, settings }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center border-t border-slate-800/50 pt-6">
-          <p className="text-slate-500 text-xs">
+        <div className="mt-8 text-center border-t border-slate-200 dark:border-slate-800/50 pt-6">
+          <p className="text-slate-500 dark:text-slate-500 text-xs">
             © {new Date().getFullYear()} {settings?.companyName || 'Nexus Systems Inc.'} <br />
             Protected by SSO & 256-bit Encryption.
           </p>

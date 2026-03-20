@@ -8,22 +8,37 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// Get dashboard stats
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const totalAssets = await Asset.countDocuments();
-    const assignedAssets = await Asset.countDocuments({ status: 'assigned' });
-    const availableAssets = await Asset.countDocuments({ status: 'available' });
-    const maintenanceAssets = await Asset.countDocuments({ status: 'in_maintenance' });
-    const retiredAssets = await Asset.countDocuments({ status: 'retired' });
-    const lostAssets = await Asset.countDocuments({ status: 'lost' });
+    let matchCondition = {};
+    if (req.user.role === 'employee') {
+      const employee = await Employee.findOne({ user: req.user.userId });
+      if (employee) {
+        matchCondition = { assignedTo: employee._id };
+      } else {
+        matchCondition = { _id: null };
+      }
+    }
 
-    const totalEmployees = await Employee.countDocuments();
-    const activeEmployees = await Employee.countDocuments({ isActive: true });
+    const totalAssets = await Asset.countDocuments(matchCondition);
+    const assignedAssets = await Asset.countDocuments({ ...matchCondition, status: 'assigned' });
+    const availableAssets = await Asset.countDocuments({ ...matchCondition, status: 'available' });
+    const maintenanceAssets = await Asset.countDocuments({ ...matchCondition, status: 'in_maintenance' });
+    const retiredAssets = await Asset.countDocuments({ ...matchCondition, status: 'retired' });
+    const lostAssets = await Asset.countDocuments({ ...matchCondition, status: 'lost' });
 
-    const totalUsers = await User.countDocuments();
+    let totalEmployees = 0;
+    let activeEmployees = 0;
+    let totalUsers = 0;
+
+    if (req.user.role !== 'employee') {
+      totalEmployees = await Employee.countDocuments();
+      activeEmployees = await Employee.countDocuments({ isActive: true });
+      totalUsers = await User.countDocuments();
+    }
 
     const assetsByType = await Asset.aggregate([
+      { $match: matchCondition },
       { $group: { _id: { $toLower: '$type' }, count: { $sum: 1 } } }
     ]);
 
@@ -57,9 +72,17 @@ router.get('/stats', authenticateToken, async (req, res) => {
 // Get asset depreciation summary
 router.get('/depreciation', authenticateToken, async (req, res) => {
   try {
-    const assets = await Asset.find({
-      purchasePrice: { $exists: true, $gt: 0 }
-    });
+    let matchCondition = { purchasePrice: { $exists: true, $gt: 0 } };
+    if (req.user.role === 'employee') {
+      const employee = await Employee.findOne({ user: req.user.userId });
+      if (employee) {
+        matchCondition.assignedTo = employee._id;
+      } else {
+        matchCondition._id = null;
+      }
+    }
+
+    const assets = await Asset.find(matchCondition);
 
     let totalPurchaseValue = 0;
     let totalCurrentValue = 0;
@@ -88,7 +111,17 @@ router.get('/depreciation', authenticateToken, async (req, res) => {
 // Get recent assignments
 router.get('/recent-assignments', authenticateToken, async (req, res) => {
   try {
-    const recentAssignments = await Assignment.find()
+    let matchCondition = {};
+    if (req.user.role === 'employee') {
+      const employee = await Employee.findOne({ user: req.user.userId });
+      if (employee) {
+        matchCondition = { employee: employee._id };
+      } else {
+        matchCondition = { _id: null };
+      }
+    }
+
+    const recentAssignments = await Assignment.find(matchCondition)
       .populate('asset', 'name assetTag')
       .populate('employee', 'firstName lastName')
       .sort({ assignedDate: -1 })

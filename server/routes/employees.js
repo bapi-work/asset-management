@@ -13,6 +13,10 @@ router.get('/', authenticateToken, async (req, res) => {
     const { department, isActive, search } = req.query;
     let filter = {};
 
+    if (req.user.role === 'employee') {
+      filter.user = req.user.userId;
+    }
+
     if (department) filter.department = department;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
     if (search) {
@@ -46,6 +50,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    if (req.user.role === 'employee' && employee.user?._id.toString() !== req.user.userId.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     res.json(employee);

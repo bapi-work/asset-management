@@ -31,10 +31,14 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-
-    // Default to light mode for better visibility as requested
-    setDarkMode(savedDarkMode);
+    const savedDarkModeStr = localStorage.getItem('darkMode');
+    let isDark = false;
+    if (savedDarkModeStr !== null) {
+      isDark = savedDarkModeStr === 'true';
+    } else {
+      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    setDarkMode(isDark);
 
     if (token) {
       // Verify token and fetch user
@@ -67,9 +71,8 @@ function App() {
       const res = await axios.get('/api/settings');
       setSettings(res.data);
       localStorage.setItem('appSettings', JSON.stringify(res.data)); // Persist settings
-      // Only apply server setting if no local preference
       if (localStorage.getItem('darkMode') === null) {
-        setDarkMode(false);
+        setDarkMode(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err);
@@ -116,7 +119,7 @@ function App() {
         {!user ? (
           <Routes>
             <Route path="/login" element={
-              !user ? <Login onLogin={handleLogin} settings={settings} /> : <Navigate to="/dashboard" />
+              !user ? <Login onLogin={handleLogin} settings={settings} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} /> : <Navigate to="/dashboard" />
             } />
             <Route path="/setup" element={<Setup onLogin={handleLogin} />} />
             <Route path="*" element={<Navigate to="/login" />} />
