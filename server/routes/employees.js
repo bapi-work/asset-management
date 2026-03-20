@@ -66,7 +66,28 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create employee
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
-    const employee = new Employee(req.body);
+    const { createLoginAccess, username, password, ...employeeData } = req.body;
+
+    if (createLoginAccess) {
+      if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required to create login access.' });
+      }
+      const existingUser = await User.findOne({ username });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already exists.' });
+      }
+      const user = new User({
+        username,
+        email: employeeData.email,
+        password,
+        role: 'employee',
+        isActive: true
+      });
+      await user.save();
+      employeeData.user = user._id;
+    }
+
+    const employee = new Employee(employeeData);
     await employee.save();
 
     await AuditLog.create({

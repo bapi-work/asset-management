@@ -22,7 +22,10 @@ const Employees = () => {
     employmentType: 'full_time',
     location: '',
     phone: '',
-    costCenter: ''
+    costCenter: '',
+    createLoginAccess: false,
+    username: '',
+    password: ''
   });
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -85,7 +88,10 @@ const Employees = () => {
         employmentType: 'full_time',
         location: '',
         phone: '',
-        costCenter: ''
+        costCenter: '',
+        createLoginAccess: false,
+        username: '',
+        password: ''
       });
       fetchEmployees(); // Ensure list is fresh
     } catch (err) {
@@ -109,7 +115,10 @@ const Employees = () => {
       employmentType: employee.employmentType || 'full_time',
       location: employee.location?._id || employee.location || '',
       phone: employee.phone || '',
-      costCenter: employee.costCenter || ''
+      costCenter: employee.costCenter || '',
+      createLoginAccess: false,
+      username: '',
+      password: ''
     });
     setEditingId(employee._id);
     setShowForm(true);
@@ -205,7 +214,10 @@ const Employees = () => {
                     department: '',
                     designation: '',
                     employmentType: 'full_time',
-                    location: ''
+                    location: '',
+                    createLoginAccess: false,
+                    username: '',
+                    password: ''
                   });
                   setEditingId(null);
                 }
@@ -332,6 +344,45 @@ const Employees = () => {
                 <option key={loc._id} value={loc._id}>{loc.name}</option>
               ))}
             </select>
+            
+            {/* Create Login Access Section (Only on creation) */}
+            {!editingId && (
+              <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <label className="flex items-center gap-2 mb-4 cursor-pointer text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.createLoginAccess}
+                    onChange={(e) => setFormData({ ...formData, createLoginAccess: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
+                  />
+                  <span className="font-medium text-sm">Create User Login Access</span>
+                </label>
+
+                {formData.createLoginAccess && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    <input
+                      type="text"
+                      placeholder="Username for login"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
+                      required={formData.createLoginAccess}
+                      autoComplete="new-username"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
+                      required={formData.createLoginAccess}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="md:col-span-2 flex gap-2">
               <button
                 type="submit"
