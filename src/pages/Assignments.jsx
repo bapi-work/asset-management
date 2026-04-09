@@ -6,7 +6,7 @@ const Assignments = () => {
   const [assets, setAssets] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ status: '' });
+  const [filters, setFilters] = useState({ status: 'active' });
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({

@@ -339,6 +339,54 @@ router.post('/export/csv', authenticateToken, async (req, res) => {
   }
 });
 
+// Export service request history to CSV
+router.post('/export/service-history-csv', authenticateToken, async (req, res) => {
+  try {
+    const assets = await Asset.find()
+      .populate('location', 'name currency')
+      .populate('assignedTo', 'firstName lastName employeeId');
+
+    const rows = [];
+    for (const asset of assets) {
+      if (!asset.serviceRequests || asset.serviceRequests.length === 0) continue;
+      for (const sr of asset.serviceRequests) {
+        rows.push({
+          'Asset Tag': asset.assetTag || '',
+          'Asset Name': asset.name || '',
+          'Serial Number': asset.serialNumber || '',
+          'Assigned To': asset.assignedTo ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}` : '',
+          'Employee ID': asset.assignedTo?.employeeId || asset.employeeId || '',
+          'Location': asset.location?.name || '',
+          'Service Type': sr.serviceType || '',
+          'Service Status': sr.serviceStatus || '',
+          'Damaged Item': sr.damagedItem || '',
+          'Damage Reason': sr.damageReason || '',
+          'Service Cost': sr.serviceCost || '',
+          'Resolution': sr.serviceResolution || '',
+          'Service Date': sr.createdAt ? new Date(sr.createdAt).toLocaleDateString() : '',
+          'Invoice Date': asset.invoiceDate ? new Date(asset.invoiceDate).toLocaleDateString() : '',
+          'Invoice No': asset.invoiceNo || '',
+          'Supplier/Vendor': asset.supplierName || asset.vendor || ''
+        });
+      }
+    }
+
+    if (rows.length === 0) {
+      return res.status(200).send('No service history records found');
+    }
+
+    stringify(rows, { header: true }, (err, csvOutput) => {
+      if (err) throw err;
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=service_history_export.csv');
+      res.send(csvOutput);
+    });
+  } catch (error) {
+    console.error('Export service history CSV error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Import assets from CSV
 router.post('/import/csv', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
@@ -448,6 +496,14 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin', 'manager'),
       assetData.invoiceDate = parseDate(getValue(['Invoice Date', 'invoiceDate']));
       assetData.invoiceNo = getValue(['Invoice No', 'invoiceNo']);
 
+      // Warranty fields
+      assetData.warrantyExpiry = parseDate(getValue(['Warranty Expiry', 'warrantyExpiry', 'Warranty Expiry Date']));
+      assetData.warrantyProvider = getValue(['Warranty Provider', 'warrantyProvider']);
+      const rawWarrantyStatus = getValue(['Warranty Status', 'warrantyStatus']);
+      if (rawWarrantyStatus) {
+        assetData.warrantyStatus = rawWarrantyStatus.toLowerCase() === 'active' ? 'active' : 'inactive';
+      }
+
       // 3. Handle Custom Fields (everything else)
       const mappedKeys = [
         'Asset Tag', 'assetTag', 'tag', 'Name', 'name', 'Asset Name', 'Type', 'type', 'Asset Type',
@@ -461,7 +517,9 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin', 'manager'),
         'Express Service Code', 'expressServiceCode', 'Adapter S/N', 'adapterSerialNumber', 'Adapter SN',
         'Processor', 'processor', 'RAM', 'ram', 'Storage', 'storage', 'Laptop Assigned Date', 'laptopAssignedDate',
         'License', 'license', 'Acknowledgement Form', 'acknowledgementForm', 'Old Loaner', 'oldLoaner',
-        'Supplier Name', 'supplierName', 'Invoice Date', 'invoiceDate', 'Invoice No', 'invoiceNo'
+        'Supplier Name', 'supplierName', 'Invoice Date', 'invoiceDate', 'Invoice No', 'invoiceNo',
+        'Warranty Expiry', 'warrantyExpiry', 'Warranty Expiry Date', 'Warranty Provider', 'warrantyProvider',
+        'Warranty Status', 'warrantyStatus'
       ].map(k => k.toLowerCase().replace(/[\s\/\-_]+/g, ''));
 
       for (const key in item) {
