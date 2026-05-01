@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 
 const settingsSchema = new mongoose.Schema({
   companyName: String,
+  companyAddress: String,
+  contactEmail: String,
+  contactNumber: String,
   companyLogo: String,
   companyWebsite: String,
   headerText: String,

@@ -11,6 +11,7 @@ const AssetDetail = () => {
   const [locations, setLocations] = useState([]);
   const [assetTypes, setAssetTypes] = useState([]);
   const [history, setHistory] = useState([]);
+  const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -24,6 +25,7 @@ const AssetDetail = () => {
     fetchAssignmentHistory();
     fetchLocations();
     fetchAssetTypes();
+    fetchSettings();
   }, [id]);
 
   const fetchAssetDetail = async () => {
@@ -56,6 +58,15 @@ const AssetDetail = () => {
       setAssetTypes(response.data);
     } catch (err) {
       console.error('Failed to fetch asset types:', err);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const response = await axios.get('/api/settings');
+      setSettings(response.data);
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
     }
   };
 
@@ -612,7 +623,7 @@ const AssetDetail = () => {
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Asset Identifier</h3>
             <div className="p-6 bg-white rounded-3xl shadow-xl shadow-slate-200 dark:shadow-none mb-8 ring-1 ring-slate-100">
-              <QRCode value={asset.assetTag} size={180} />
+              <QRCode value={`Asset Tag: ${asset.assetTag || ''}\nCompany Name: ${settings.companyName || ''}\nCompany Address: ${settings.companyAddress || ''}\nEmail ID: ${settings.contactEmail || ''}\nContact Number: ${settings.contactNumber || ''}`} size={180} />
             </div>
             <button
               onClick={() => {
