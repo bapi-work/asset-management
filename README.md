@@ -59,8 +59,10 @@ A professional, enterprise-grade Asset Management System built with the **MERN S
 - Docker Desktop
 - Node.js (for local dev without Docker)
 
-### Installation (Docker)
+### Installation
+For full deployment instructions (including Production, SSL, and custom database configurations), please see the [Deployment Guide](DEPLOYMENT.md).
 
+For a quick development start using Docker:
 1.  **Start the System**:
     ```bash
     docker-compose -f docker-compose.dev.yml up --build
