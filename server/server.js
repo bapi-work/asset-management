@@ -16,6 +16,7 @@ const __dirname = dirname(__filename);
 const app = express();
 
 // Security Middleware
+app.set('trust proxy', 1); // Trust reverse proxy to fix express-rate-limit X-Forwarded-For warnings
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -75,8 +76,9 @@ if (mongoUri.includes('mongodb+srv') || mongoUri.includes('ondigitalocean.com'))
   }
 }
 
-mongoose.connect(mongoUri, mongooseOptions)
-  .then(async () => {
+const connectWithRetry = async () => {
+  try {
+    await mongoose.connect(mongoUri, mongooseOptions);
     console.log('✅ MongoDB connected');
 
     // Auto-initialize database if needed (on production/cloud deployment)
@@ -93,11 +95,14 @@ mongoose.connect(mongoUri, mongooseOptions)
     } else {
       dbInitialized = true;
     }
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
-  });
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.log('⏳ Retrying database connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+connectWithRetry();
 
 // Import Routes
 import authRoutes from './routes/auth.js';

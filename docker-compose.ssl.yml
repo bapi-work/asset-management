@@ -38,7 +38,7 @@ services:
       MONGO_AUTH_SOURCE: admin
       MONGO_USER: ${MONGO_USER:-admin}
       MONGO_PASSWORD: ${MONGO_PASSWORD:-password}
-      # MONGODB_URI is constructed by server.js safely
+      MONGODB_URI: ${MONGODB_URI}
       FRONTEND_URL: https://${DOMAIN_NAME}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       AUTO_INIT_DB: "true"
