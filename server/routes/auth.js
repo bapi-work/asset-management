@@ -53,16 +53,11 @@ router.post('/login', async (req, res) => {
 
     // Check DB Connection State
     if (mongoose.connection.readyState !== 1) {
-      console.log(`⚠️ DB Not Connected (State: ${mongoose.connection.readyState}). Attempting reconnect...`);
-      try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/asset-management', {
-          serverSelectionTimeoutMS: 5000
-        });
-        console.log('✅ Reconnected to MongoDB');
-      } catch (connErr) {
-        console.error('❌ Reconnect failed:', connErr);
-        return res.status(503).json({ message: 'Database connection failed. Please try again.' });
+      if (mongoose.connection.readyState === 2) {
+        return res.status(503).json({ message: 'System is initializing. Please wait a moment and try again.' });
       }
+      console.error(`⚠️ DB Not Connected (State: ${mongoose.connection.readyState}).`);
+      return res.status(503).json({ message: 'Database connection is currently unavailable. Please try again later.' });
     }
 
     if (!username || !password) {

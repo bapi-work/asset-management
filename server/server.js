@@ -55,11 +55,21 @@ if (process.env.MONGO_HOST) {
 }
 
 // Database Connection
-mongoose.connect(mongoUri, {
+const mongooseOptions = {
   serverSelectionTimeoutMS: 30000,
   connectTimeoutMS: 30000,
-  socketTimeoutMS: 45000
-})
+  socketTimeoutMS: 45000,
+  family: 4 // Force IPv4, often resolves Node 18+ connection issues with Managed DBs
+};
+
+// Add TLS if connecting to a cloud provider and not explicitly disabled
+if (mongoUri.includes('mongodb+srv') || mongoUri.includes('ondigitalocean.com')) {
+  if (!mongoUri.includes('tls=')) {
+    mongooseOptions.tls = true;
+  }
+}
+
+mongoose.connect(mongoUri, mongooseOptions)
   .then(async () => {
     console.log('✅ MongoDB connected');
 

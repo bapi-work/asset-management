@@ -21,15 +21,20 @@ async function initializeDatabase() {
   console.log('🚀 Starting database initialization...');
 
   try {
-    // Connect to MongoDB
-    console.log('📡 Connecting to MongoDB...');
-    await mongoose.connect(DB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS: 30000
-    });
-    console.log('✅ MongoDB connected successfully');
+    // Connect to MongoDB if not already connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('📡 Connecting to MongoDB...');
+      await mongoose.connect(DB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        family: 4 // Add family 4 for DO / Managed DBs if run independently
+      });
+      console.log('✅ MongoDB connected successfully');
+    } else {
+      console.log('📡 Using existing MongoDB connection...');
+    }
 
     // Check if data already exists
     const userCount = await User.countDocuments();
