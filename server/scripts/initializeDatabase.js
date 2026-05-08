@@ -28,8 +28,7 @@ async function initializeDatabase() {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000,
-        family: 4 // Add family 4 for DO / Managed DBs if run independently
+        connectTimeoutMS: 30000
       });
       console.log('✅ MongoDB connected successfully');
     } else {

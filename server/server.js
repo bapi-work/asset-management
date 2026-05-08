@@ -39,8 +39,12 @@ let dbInitialized = false;
 // Construct MONGODB_URI with safe encoding for special characters
 let mongoUri = process.env.MONGODB_URI;
 
-// If MONGO_HOST is specified, prefer constructing the URI manually to handle special chars in passwords
-if (process.env.MONGO_HOST) {
+// Check if the user provided a custom external URI in MONGODB_URI
+const isDefaultDockerUri = mongoUri && (mongoUri.includes('@mongodb:27017') || mongoUri.includes('localhost') || mongoUri.includes('127.0.0.1'));
+
+// If MONGO_HOST is specified, prefer constructing the URI manually to handle special chars in passwords.
+// Skip this override if the user explicitly provided a custom cloud MONGODB_URI.
+if (process.env.MONGO_HOST && (!mongoUri || isDefaultDockerUri)) {
   const user = encodeURIComponent(process.env.MONGO_USER || 'admin');
   const pass = encodeURIComponent(process.env.MONGO_PASSWORD || 'password');
   const host = process.env.MONGO_HOST;
@@ -49,7 +53,10 @@ if (process.env.MONGO_HOST) {
   const authSource = process.env.MONGO_AUTH_SOURCE || 'admin';
 
   mongoUri = `mongodb://${user}:${pass}@${host}:${port}/${db}?authSource=${authSource}`;
-  console.log(`🔧 Constructed MongoDB URI connecting to host: ${host}`);
+  console.log(`🔧 Constructed MongoDB URI connecting to local/docker host: ${host}`);
+} else if (mongoUri && !isDefaultDockerUri) {
+  console.log(`☁️ Using provided custom MongoDB URI (Cloud/External)`);
+
 } else if (!mongoUri) {
   mongoUri = 'mongodb://localhost:27017/asset-management';
 }
@@ -58,8 +65,7 @@ if (process.env.MONGO_HOST) {
 const mongooseOptions = {
   serverSelectionTimeoutMS: 30000,
   connectTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-  family: 4 // Force IPv4, often resolves Node 18+ connection issues with Managed DBs
+  socketTimeoutMS: 45000
 };
 
 // Add TLS if connecting to a cloud provider and not explicitly disabled
