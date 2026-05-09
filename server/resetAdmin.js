@@ -12,7 +12,9 @@ const resetAdmin = async () => {
     try {
         // Construct MONGODB_URI (matching server.js logic)
         let mongoUri = process.env.MONGODB_URI;
-        if (process.env.MONGO_HOST) {
+        const isDefaultDockerUri = mongoUri && (mongoUri.includes('@mongodb:27017') || mongoUri.includes('localhost') || mongoUri.includes('127.0.0.1'));
+
+        if (process.env.MONGO_HOST && (!mongoUri || isDefaultDockerUri)) {
             const user = encodeURIComponent(process.env.MONGO_USER || 'admin');
             const pass = encodeURIComponent(process.env.MONGO_PASSWORD || 'password');
             const host = process.env.MONGO_HOST;
@@ -22,6 +24,17 @@ const resetAdmin = async () => {
             mongoUri = `mongodb://${user}:${pass}@${host}:${port}/${db}?authSource=${authSource}`;
         } else if (!mongoUri) {
             mongoUri = 'mongodb://localhost:27017/asset-management';
+        }
+
+        // Inject credentials if the URI doesn't contain them inline
+        if (mongoUri && !mongoUri.includes('@') && process.env.MONGO_USER && process.env.MONGO_PASSWORD) {
+            const user = encodeURIComponent(process.env.MONGO_USER);
+            const pass = encodeURIComponent(process.env.MONGO_PASSWORD);
+            if (mongoUri.startsWith('mongodb+srv://')) {
+                mongoUri = mongoUri.replace('mongodb+srv://', `mongodb+srv://${user}:${pass}@`);
+            } else if (mongoUri.startsWith('mongodb://')) {
+                mongoUri = mongoUri.replace('mongodb://', `mongodb://${user}:${pass}@`);
+            }
         }
 
         console.log('Connecting to MongoDB...');
