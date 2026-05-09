@@ -130,19 +130,6 @@ const Header = ({ user, onLogout, darkMode, onToggleDarkMode, settings }) => {
               {/* Menu items */}
               <div className="py-2">
                 <button
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    // Navigate to profile (if profile page exists)
-                  }}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${darkMode
-                      ? 'text-secondary-200 hover:bg-secondary-700'
-                      : 'text-secondary-800 hover:bg-secondary-100'
-                    }`}
-                >
-                  👤 My Profile
-                </button>
-
-                <button
                   onClick={onToggleDarkMode}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${darkMode
                       ? 'text-secondary-200 hover:bg-secondary-700'
