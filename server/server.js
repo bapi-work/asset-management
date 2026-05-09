@@ -76,6 +76,16 @@ if (mongoUri.includes('mongodb+srv') || mongoUri.includes('ondigitalocean.com'))
   }
 }
 
+// Inject credentials if the URI doesn't contain them inline (no '@' symbol)
+// This fixes "Command find requires authentication" when users provide a clean URI
+if (mongoUri && !mongoUri.includes('@') && process.env.MONGO_USER && process.env.MONGO_PASSWORD) {
+  mongooseOptions.user = process.env.MONGO_USER;
+  mongooseOptions.pass = process.env.MONGO_PASSWORD;
+  
+  // Also pass authSource if available, default to admin
+  mongooseOptions.authSource = process.env.MONGO_AUTH_SOURCE || 'admin';
+}
+
 const connectWithRetry = async () => {
   try {
     await mongoose.connect(mongoUri, mongooseOptions);
