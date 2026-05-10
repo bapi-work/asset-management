@@ -64,14 +64,18 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Username and password are required' });
     }
 
-    const user = await User.findOne({ username }).select('+password');
+    // Use case-insensitive regex for username matching to prevent capitalization lockouts
+    const user = await User.findOne({ 
+      username: { $regex: new RegExp(`^${username}$`, 'i') } 
+    }).select('+password');
+    
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid credentials (User not found)' });
     }
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid credentials (Password incorrect)' });
     }
 
     if (!user.isActive) {

@@ -43,8 +43,8 @@ const resetAdmin = async () => {
         });
         console.log('✅ Connected.');
 
-        const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-        const newPassword = process.env.ADMIN_PASSWORD || 'Admin@123456';
+        const adminUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
+        const newPassword = (process.env.ADMIN_PASSWORD || 'Admin@123456').trim();
 
         console.log(`Searching for admin user: ${adminUsername}`);
         let user = await User.findOne({ username: adminUsername });

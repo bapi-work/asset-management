@@ -47,9 +47,9 @@ async function initializeDatabase() {
     // 1. Create default admin user
     console.log('👤 Creating default admin user...');
     const adminUser = await User.create({
-      username: process.env.ADMIN_USERNAME || 'admin',
-      email: process.env.ADMIN_EMAIL || 'admin@company.com',
-      password: process.env.ADMIN_PASSWORD || 'Admin@123456',
+      username: (process.env.ADMIN_USERNAME || 'admin').trim(),
+      email: (process.env.ADMIN_EMAIL || 'admin@company.com').trim(),
+      password: (process.env.ADMIN_PASSWORD || 'Admin@123456').trim(),
       role: 'admin',
       firstName: 'System',
       lastName: 'Administrator',
