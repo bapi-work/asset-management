@@ -10,6 +10,16 @@ import fs from 'fs';
 
 const router = express.Router();
 
+// Helper to format date as DD-MM-YYYY
+const formatDateToDDMMYYYY = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${d.getFullYear()}`;
+};
+
 // Get all assets
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -306,12 +316,12 @@ router.post('/export/csv', authenticateToken, async (req, res) => {
         'Processor': asset.processor || '',
         'RAM': asset.ram || '',
         'Storage': asset.storage || '',
-        'Laptop Assigned Date': asset.laptopAssignedDate ? new Date(asset.laptopAssignedDate).toLocaleDateString() : '',
+        'Laptop Assigned Date': asset.laptopAssignedDate ? formatDateToDDMMYYYY(asset.laptopAssignedDate) : '',
         'License': asset.license || '',
         'Acknowledgement Form': asset.acknowledgementForm || '',
         'Old Loaner': asset.oldLoaner || '',
         'Supplier Name': asset.supplierName || '',
-        'Invoice Date': asset.invoiceDate ? new Date(asset.invoiceDate).toLocaleDateString() : '',
+        'Invoice Date': asset.invoiceDate ? formatDateToDDMMYYYY(asset.invoiceDate) : '',
         'Invoice No': asset.invoiceNo || '',
         'Purchase Price': asset.purchasePrice,
         'Location': asset.location?.name || '',
@@ -363,8 +373,8 @@ router.post('/export/service-history-csv', authenticateToken, async (req, res) =
           'Damage Reason': sr.damageReason || '',
           'Service Cost': sr.serviceCost || '',
           'Resolution': sr.serviceResolution || '',
-          'Service Date': sr.createdAt ? new Date(sr.createdAt).toLocaleDateString() : '',
-          'Invoice Date': asset.invoiceDate ? new Date(asset.invoiceDate).toLocaleDateString() : '',
+          'Service Date': sr.createdAt ? formatDateToDDMMYYYY(sr.createdAt) : '',
+          'Invoice Date': asset.invoiceDate ? formatDateToDDMMYYYY(asset.invoiceDate) : '',
           'Invoice No': asset.invoiceNo || '',
           'Supplier/Vendor': asset.supplierName || asset.vendor || ''
         });

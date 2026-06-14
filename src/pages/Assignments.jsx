@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '../utils/date';
 import axios from 'axios';
 
 const Assignments = () => {
@@ -217,7 +218,7 @@ const Assignments = () => {
                   </span>
                 </td>
                 <td className="px-6 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  {new Date(assignment.assignedDate).toLocaleDateString()}
+                  {formatDate(assignment.assignedDate)}
                 </td>
                 <td className="px-6 py-3 flex gap-2 whitespace-nowrap">
                   {assignment.status === 'active' && ['admin', 'manager'].includes(user?.role) && (

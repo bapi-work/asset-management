@@ -23,7 +23,7 @@ const settingsSchema = new mongoose.Schema({
   },
   dateFormat: {
     type: String,
-    default: 'DD/MM/YYYY'
+    default: 'DD-MM-YYYY'
   },
 
   // Email Settings

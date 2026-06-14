@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { formatDate } from '../utils/date';
 
 import ImportModal from '../components/ImportModal';
 
@@ -208,7 +209,7 @@ const Assets = () => {
         asset.assetTag, asset.name, asset.type, asset.status, asset.location?.name || '', asset.serialNumber,
         asset.processor, asset.ram, asset.storage,
         asset.purchasePrice, asset.manufacturer, asset.vendor, asset.supplierName,
-        asset.invoiceDate ? new Date(asset.invoiceDate).toLocaleDateString() : '', asset.invoiceNo,
+        asset.invoiceDate ? formatDate(asset.invoiceDate) : '', asset.invoiceNo,
         asset.assignedTo?.employeeId || asset.employeeId || '',
         asset.assignedTo ? `${asset.assignedTo.firstName || ''} ${asset.assignedTo.lastName || ''}`.trim() : '',
         asset.assignedTo?.email || '',
@@ -216,9 +217,9 @@ const Assets = () => {
         asset.assignedTo?.designation || '',
         asset.companyClient, asset.mobileNumber, asset.internalMailId, asset.clientMailId,
         asset.priority, asset.expressServiceCode, asset.adapterSerialNumber,
-        asset.laptopAssignedDate ? new Date(asset.laptopAssignedDate).toLocaleDateString() : '',
+        asset.laptopAssignedDate ? formatDate(asset.laptopAssignedDate) : '',
         asset.license, asset.acknowledgementForm, asset.oldLoaner,
-        asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : '', asset.warrantyProvider
+        asset.warrantyExpiry ? formatDate(asset.warrantyExpiry) : '', asset.warrantyProvider
       ].map(field => `"${(field || '').toString().replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
@@ -674,7 +675,7 @@ const Assets = () => {
                     {formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)}
                   </td>
                   <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                    {asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : (asset.warrantyStatus === 'active' ? 'Active' : '-')}
+                    {asset.warrantyExpiry ? formatDate(asset.warrantyExpiry) : (asset.warrantyStatus === 'active' ? 'Active' : '-')}
                   </td>
                   <td className="px-6 py-4 flex gap-3 whitespace-nowrap">
                     <button

@@ -204,7 +204,7 @@ async function initializeDatabase() {
       companyLogo: null,
       headerText: 'Asset Management System',
       currency: process.env.CURRENCY || 'USD',
-      dateFormat: 'MM/DD/YYYY',
+      dateFormat: 'DD-MM-YYYY',
       timeZone: process.env.TIMEZONE || 'America/New_York',
       language: 'en',
       maintenanceMode: false,

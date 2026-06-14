@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatDateTime } from '../utils/date';
 
 const AuditTrail = () => {
   const [logs, setLogs] = useState([]);
@@ -79,7 +80,7 @@ const AuditTrail = () => {
             {logs.map(log => (
               <tr key={log._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-3 text-gray-600 dark:text-gray-400 text-sm">
-                  {new Date(log.createdAt).toLocaleString()}
+                  {formatDateTime(log.createdAt)}
                 </td>
                 <td className="px-6 py-3 text-gray-900 dark:text-gray-100">
                   {log.user?.username || 'System'}

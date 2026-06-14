@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode.react';
+import { formatDate, formatDateTime } from '../utils/date';
 
 const AssetDetail = () => {
   const { id } = useParams();
@@ -454,7 +455,7 @@ const AssetDetail = () => {
                           <DetailItem label="Invoice No" value={asset.invoiceNo || asset.invoiceNumber} />
                           <DetailItem label="Supplier" value={asset.supplierName || asset.vendor} />
                           <DetailItem label="Value" value={formatCurrency(asset.currentValue || asset.purchasePrice, asset.location?.currency)} color="text-blue-600 dark:text-blue-400 font-black" />
-                          <DetailItem label="Purchase Date" value={asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : '-'} />
+                          <DetailItem label="Purchase Date" value={asset.purchaseDate ? formatDate(asset.purchaseDate) : '-'} />
                         </>
                       )}
                     </div>
@@ -465,7 +466,7 @@ const AssetDetail = () => {
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Extended Specs</h4>
                         <div className="grid grid-cols-2 gap-4">
                           <DetailItem label="Express Service" value={asset.expressServiceCode} />
-                          <DetailItem label="Assigned Date" value={asset.laptopAssignedDate ? new Date(asset.laptopAssignedDate).toLocaleDateString() : '-'} />
+                          <DetailItem label="Assigned Date" value={asset.laptopAssignedDate ? formatDate(asset.laptopAssignedDate) : '-'} />
                           <DetailItem label="License" value={asset.license} />
                           <DetailItem label="Old Loaner" value={asset.oldLoaner} />
                         </div>
@@ -514,7 +515,7 @@ const AssetDetail = () => {
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Warranty Information</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <DetailItem label="Warranty Status" value={asset.warrantyStatus === 'active' ? 'Active' : 'Inactive'} color={asset.warrantyStatus === 'active' ? 'text-emerald-600' : 'text-slate-500'} />
-                        <DetailItem label="Warranty Expiry Date" value={asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : '-'} />
+                        <DetailItem label="Warranty Expiry Date" value={asset.warrantyExpiry ? formatDate(asset.warrantyExpiry) : '-'} />
                         <DetailItem label="Warranty Provider" value={asset.warrantyProvider} />
                       </div>
                     </div>
@@ -552,7 +553,7 @@ const AssetDetail = () => {
                           {asset.serviceRequests?.length > 0 ? asset.serviceRequests.slice().reverse().map((req, idx) => (
                             <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
                               <div className="flex justify-between items-center pb-2 mb-4 border-b border-slate-200 dark:border-slate-700">
-                                <span className="text-xs font-bold text-slate-500">{new Date(req.createdAt).toLocaleString()}</span>
+                                <span className="text-xs font-bold text-slate-500">{formatDateTime(req.createdAt)}</span>
                                 <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{req.serviceStatus || 'Update'}</span>
                               </div>
                               <div className="grid grid-cols-2 gap-y-6 gap-x-4">
@@ -599,7 +600,7 @@ const AssetDetail = () => {
                     <div className="absolute left-[-4px] top-1.5 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-sm font-black text-slate-900 dark:text-white">{note.author?.username || 'System'}</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(note.createdAt).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{formatDateTime(note.createdAt)}</span>
                     </div>
                     <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{note.content}</p>
                   </div>
@@ -661,7 +662,7 @@ const AssetDetail = () => {
                           {assignment.status === 'active' ? 'Current Owner' : 'Past Owner'}
                         </span>
                         <span className="text-[10px] font-bold text-slate-300 font-mono">
-                          {new Date(assignment.assignedDate).toLocaleDateString()}
+                          {formatDate(assignment.assignedDate)}
                         </span>
                       </div>
                     </div>

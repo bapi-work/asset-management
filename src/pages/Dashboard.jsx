@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '../utils/date';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
@@ -246,7 +247,7 @@ const Dashboard = ({ settings }) => {
                     </span>
                   </td>
                   <td className="py-3 px-6 text-slate-500 dark:text-slate-400 font-mono text-xs">
-                    {new Date(assignment.assignedDate).toLocaleDateString()}
+                    {formatDate(assignment.assignedDate)}
                   </td>
                 </tr>
               ))}
