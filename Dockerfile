@@ -3,7 +3,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install dependencies
-COPY server/package.json ./
+COPY server/package.json server/package-lock.json* ./
 RUN npm install --production
 
 # Copy application files
