@@ -9,7 +9,24 @@ const assignmentSchema = new mongoose.Schema({
   employee: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',
-    required: true
+    required: false
+  },
+  employeeSnapshot: {
+    employeeId: String,
+    firstName: String,
+    lastName: String,
+    email: String,
+    department: String,
+    designation: String,
+    locationName: String,
+    isExited: {
+      type: Boolean,
+      default: false
+    }
+  },
+  acknowledgementForm: {
+    type: String,
+    default: ''
   },
   assignedDate: {
     type: Date,
@@ -32,8 +49,8 @@ const assignmentSchema = new mongoose.Schema({
   },
   conditionOnReturn: {
     type: String,
-    enum: ['good', 'fair', 'poor', 'damaged', 'lost'],
-    values: []
+    enum: ['good', 'fair', 'poor', 'damaged', 'lost', ''],
+    default: 'good'
   },
   notes: String,
   returnNotes: String,

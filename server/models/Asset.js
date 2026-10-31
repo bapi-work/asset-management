@@ -36,6 +36,15 @@ const assetSchema = new mongoose.Schema({
   license: String,
   acknowledgementForm: String,
   oldLoaner: String,
+  loanerHistory: [{
+    employeeId: String,
+    employeeName: String,
+    email: String,
+    department: String,
+    assignedDate: Date,
+    returnedDate: Date,
+    notes: String
+  }],
   supplierName: String,
   invoiceDate: Date,
   invoiceNo: String,

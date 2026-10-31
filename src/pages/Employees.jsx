@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
 import ImportModal from '../components/ImportModal';
@@ -8,7 +8,16 @@ const Employees = () => {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [filters, setFilters] = useState({ department: '', search: '' });
+  const [filters, setFilters] = useState({
+    search: '',
+    department: '',
+    location: '',
+    employmentType: ''
+  });
+  const [sortConfig, setSortConfig] = useState({
+    key: 'employeeId',
+    direction: 'asc'
+  });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -33,15 +42,11 @@ const Employees = () => {
   useEffect(() => {
     fetchEmployees();
     fetchLocations();
-  }, [filters]);
+  }, []);
 
   const fetchEmployees = async () => {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.department) queryParams.append('department', filters.department);
-      if (filters.search) queryParams.append('search', filters.search);
-
-      const response = await axios.get(`/api/employees?${queryParams}`);
+      const response = await axios.get('/api/employees');
       setEmployees(response.data);
     } catch (err) {
       console.error('Failed to fetch employees:', err);
@@ -59,11 +64,104 @@ const Employees = () => {
     }
   };
 
+  // Distinct departments for filter dropdown
+  const departments = useMemo(() => {
+    const deptSet = new Set();
+    employees.forEach(emp => {
+      if (emp.department && emp.department.trim()) {
+        deptSet.add(emp.department.trim());
+      }
+    });
+    return Array.from(deptSet).sort((a, b) => a.localeCompare(b));
+  }, [employees]);
+
+  // Filtered and sorted employees
+  const filteredAndSortedEmployees = useMemo(() => {
+    const searchLower = filters.search.trim().toLowerCase();
+
+    const filtered = employees.filter(emp => {
+      if (filters.department && (emp.department || '').trim().toLowerCase() !== filters.department.toLowerCase()) {
+        return false;
+      }
+      if (filters.location) {
+        const empLocId = emp.location?._id || emp.location || '';
+        const empLocName = emp.location?.name || '';
+        if (empLocId !== filters.location && empLocName !== filters.location) {
+          return false;
+        }
+      }
+      if (filters.employmentType && emp.employmentType !== filters.employmentType) {
+        return false;
+      }
+      if (searchLower) {
+        const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+        const empId = (emp.employeeId || '').toLowerCase();
+        const email = (emp.email || '').toLowerCase();
+        const dept = (emp.department || '').toLowerCase();
+        const desig = (emp.designation || '').toLowerCase();
+        const locName = (emp.location?.name || '').toLowerCase();
+        return (
+          fullName.includes(searchLower) ||
+          empId.includes(searchLower) ||
+          email.includes(searchLower) ||
+          dept.includes(searchLower) ||
+          desig.includes(searchLower) ||
+          locName.includes(searchLower)
+        );
+      }
+      return true;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      const getVal = (item, key) => {
+        switch (key) {
+          case 'employeeId':
+            return (item.employeeId || '').toString().toLowerCase();
+          case 'name':
+            return `${item.firstName || ''} ${item.lastName || ''}`.trim().toLowerCase();
+          case 'email':
+            return (item.email || '').toLowerCase();
+          case 'department':
+            return (item.department || '').toLowerCase();
+          case 'designation':
+            return (item.designation || '').toLowerCase();
+          case 'location':
+            return (item.location?.name || '').toLowerCase();
+          case 'employmentType':
+            return (item.employmentType || '').toLowerCase();
+          default:
+            return (item[key] || '').toString().toLowerCase();
+        }
+      };
+
+      const valA = getVal(a, sortConfig.key);
+      const valB = getVal(b, sortConfig.key);
+
+      const comparison = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [employees, filters, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return <span className="ml-1 text-slate-400 opacity-60">↕</span>;
+    }
+    return <span className="ml-1 text-blue-500 font-bold">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   const handleSubmitRaw = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Basic validation
       if (!formData.location) {
         alert('Please select a location');
         setSubmitting(false);
@@ -94,10 +192,9 @@ const Employees = () => {
         username: '',
         password: ''
       });
-      fetchEmployees(); // Ensure list is fresh
+      fetchEmployees();
     } catch (err) {
       console.error('Failed to save employee:', err);
-      // Detailed error message
       const msg = err.response?.data?.message || err.message || 'Failed to save employee';
       alert(`Error: ${msg}`);
     } finally {
@@ -126,7 +223,7 @@ const Employees = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this employee?')) return;
+    if (!window.confirm('Are you sure you want to delete this employee? Historical asset loaner details will be preserved automatically.')) return;
     try {
       await axios.delete(`/api/employees/${id}`);
       setEmployees(employees.filter(e => e._id !== id));
@@ -138,7 +235,7 @@ const Employees = () => {
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} employees?`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} employees? Historical asset loaner details will be preserved automatically.`)) return;
     try {
       await Promise.all(selectedIds.map(id => axios.delete(`/api/employees/${id}`)));
       setEmployees(employees.filter(e => !selectedIds.includes(e._id)));
@@ -152,7 +249,7 @@ const Employees = () => {
 
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(employees.map(emp => emp._id));
+      setSelectedIds(filteredAndSortedEmployees.map(emp => emp._id));
     } else {
       setSelectedIds([]);
     }
@@ -170,7 +267,7 @@ const Employees = () => {
     const headers = ['Employee ID', 'First Name', 'Last Name', 'Email', 'Department', 'Designation', 'Type', 'Location'];
     const csvContent = [
       headers.join(','),
-      ...employees.map(emp => [
+      ...filteredAndSortedEmployees.map(emp => [
         emp.employeeId,
         emp.firstName,
         emp.lastName,
@@ -205,6 +302,8 @@ const Employees = () => {
     employmentType: 'full_time',
     location: 'Headquarters'
   };
+
+  const hasActiveFilters = Boolean(filters.search || filters.department || filters.location || filters.employmentType);
 
   if (loading) {
     return <div className="p-6">Loading employees...</div>;
@@ -254,6 +353,8 @@ const Employees = () => {
                     designation: '',
                     employmentType: 'full_time',
                     location: '',
+                    phone: '',
+                    costCenter: '',
                     createLoginAccess: false,
                     username: '',
                     password: ''
@@ -270,22 +371,79 @@ const Employees = () => {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex gap-4 flex-wrap">
+      {/* Filters & Sort Bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex gap-3 flex-wrap items-center">
         <input
           type="text"
-          placeholder="Search employees..."
+          placeholder="Search employees by ID, name, email, designation..."
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          className="flex-1 min-w-200 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="flex-1 min-w-[220px] px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
         />
-        <input
-          type="text"
-          placeholder="Department"
+        <select
           value={filters.department}
           onChange={(e) => setFilters({ ...filters, department: e.target.value })}
           className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-        />
+        >
+          <option value="">All Departments</option>
+          {departments.map(dept => (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
+        </select>
+        <select
+          value={filters.location}
+          onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+          className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="">All Locations</option>
+          {locations.map(loc => (
+            <option key={loc._id} value={loc._id}>{loc.name}</option>
+          ))}
+        </select>
+        <select
+          value={filters.employmentType}
+          onChange={(e) => setFilters({ ...filters, employmentType: e.target.value })}
+          className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="">All Types</option>
+          <option value="full_time">Full Time</option>
+          <option value="part_time">Part Time</option>
+          <option value="contractor">Contractor</option>
+          <option value="intern">Intern</option>
+        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortConfig.key}
+            onChange={(e) => setSortConfig({ ...sortConfig, key: e.target.value })}
+            className="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            title="Sort By"
+          >
+            <option value="employeeId">Sort: EMP ID</option>
+            <option value="name">Sort: Name</option>
+            <option value="email">Sort: Email</option>
+            <option value="department">Sort: Department</option>
+            <option value="designation">Sort: Designation</option>
+            <option value="location">Sort: Location</option>
+            <option value="employmentType">Sort: Type</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }))}
+            className="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium whitespace-nowrap"
+            title="Toggle Sort Direction"
+          >
+            {sortConfig.direction === 'asc' ? '↑ Asc' : '↓ Desc'}
+          </button>
+        </div>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => setFilters({ search: '', department: '', location: '', employmentType: '' })}
+            className="px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:underline whitespace-nowrap"
+          >
+            Reset Filters
+          </button>
+        )}
       </div>
 
       {/* Create Form */}
@@ -296,149 +454,149 @@ const Employees = () => {
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingId ? 'Edit Employee' : 'Create New Employee'}</h2>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 pointer">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSubmitRaw} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Employee ID"
-              value={formData.employeeId}
-              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="First Name"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Last Name"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Department"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Designation"
-              value={formData.designation}
-              onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Mobile Number"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Cost Center"
-              value={formData.costCenter}
-              onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            />
-            <select
-              value={formData.employmentType}
-              onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-            >
-              <option value="full_time">Full Time</option>
-              <option value="part_time">Part Time</option>
-              <option value="contractor">Contractor</option>
-              <option value="intern">Intern</option>
-            </select>
-            <select
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-              required
-            >
-              <option value="">Select Location</option>
-              {locations.map(loc => (
-                <option key={loc._id} value={loc._id}>{loc.name}</option>
-              ))}
-            </select>
-            
-            {/* Create Login Access Section (Only on creation) */}
-            {!editingId && (
-              <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <label className="flex items-center gap-2 mb-4 cursor-pointer text-slate-700 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.createLoginAccess}
-                    onChange={(e) => setFormData({ ...formData, createLoginAccess: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
-                  />
-                  <span className="font-medium text-sm">Create User Login Access</span>
-                </label>
+              <input
+                type="text"
+                placeholder="Employee ID"
+                value={formData.employeeId}
+                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+              />
+              <input
+                type="text"
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                required
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Department"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Designation"
+                value={formData.designation}
+                onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+              />
+              <input
+                type="text"
+                placeholder="Mobile Number"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+              />
+              <input
+                type="text"
+                placeholder="Cost Center"
+                value={formData.costCenter}
+                onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+              />
+              <select
+                value={formData.employmentType}
+                onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+              >
+                <option value="full_time">Full Time</option>
+                <option value="part_time">Part Time</option>
+                <option value="contractor">Contractor</option>
+                <option value="intern">Intern</option>
+              </select>
+              <select
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                required
+              >
+                <option value="">Select Location</option>
+                {locations.map(loc => (
+                  <option key={loc._id} value={loc._id}>{loc.name}</option>
+                ))}
+              </select>
 
-                {formData.createLoginAccess && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+              {/* Create Login Access Section (Only on creation) */}
+              {!editingId && (
+                <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <label className="flex items-center gap-2 mb-4 cursor-pointer text-slate-700 dark:text-slate-300">
                     <input
-                      type="text"
-                      placeholder="Username for login"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
-                      required={formData.createLoginAccess}
-                      autoComplete="new-username"
+                      type="checkbox"
+                      checked={formData.createLoginAccess}
+                      onChange={(e) => setFormData({ ...formData, createLoginAccess: e.target.checked })}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
                     />
-                    <input
-                      type="password"
-                      placeholder="Password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
-                      required={formData.createLoginAccess}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                )}
+                    <span className="font-medium text-sm">Create User Login Access</span>
+                  </label>
+
+                  {formData.createLoginAccess && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                      <input
+                        type="text"
+                        placeholder="Username for login"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
+                        required={formData.createLoginAccess}
+                        autoComplete="new-username"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white bg-white focus:ring-2 focus:ring-blue-500"
+                        required={formData.createLoginAccess}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="md:col-span-2 flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {editingId ? 'Update Employee' : 'Create Employee'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setEditingId(null); }}
+                  className="flex-1 py-2 px-4 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition"
+                >
+                  Cancel
+                </button>
               </div>
-            )}
-
-            <div className="md:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {editingId ? 'Update Employee' : 'Create Employee'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditingId(null); }}
-                className="flex-1 py-2 px-4 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -449,28 +607,64 @@ const Employees = () => {
             <thead className="bg-slate-50 dark:bg-slate-950">
               <tr className="border-b border-slate-200 dark:border-slate-800">
                 <th className="px-6 py-4 text-left whitespace-nowrap">
-                  <input 
-                    type="checkbox" 
-                    checked={employees.length > 0 && selectedIds.length === employees.length}
+                  <input
+                    type="checkbox"
+                    checked={filteredAndSortedEmployees.length > 0 && selectedIds.length === filteredAndSortedEmployees.length}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
                   />
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">EMP ID</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Name</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Department</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Designation</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Type</th>
+                <th
+                  onClick={() => handleSort('employeeId')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  EMP ID {renderSortIcon('employeeId')}
+                </th>
+                <th
+                  onClick={() => handleSort('name')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Name {renderSortIcon('name')}
+                </th>
+                <th
+                  onClick={() => handleSort('email')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Email {renderSortIcon('email')}
+                </th>
+                <th
+                  onClick={() => handleSort('department')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Department {renderSortIcon('department')}
+                </th>
+                <th
+                  onClick={() => handleSort('designation')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Designation {renderSortIcon('designation')}
+                </th>
+                <th
+                  onClick={() => handleSort('location')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Location {renderSortIcon('location')}
+                </th>
+                <th
+                  onClick={() => handleSort('employmentType')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-blue-600"
+                >
+                  Type {renderSortIcon('employmentType')}
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {employees.map(employee => (
+              {filteredAndSortedEmployees.map(employee => (
                 <tr key={employee._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedIds.includes(employee._id)}
                       onChange={() => toggleSelect(employee._id)}
                       className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
@@ -483,9 +677,10 @@ const Employees = () => {
                   <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.email}</td>
                   <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.department || '-'}</td>
                   <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.designation || '-'}</td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{employee.location?.name || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
-                      {employee.employmentType.replace('_', ' ').toUpperCase()}
+                      {(employee.employmentType || 'full_time').replace('_', ' ').toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-4 flex gap-2 whitespace-nowrap">
@@ -496,14 +691,14 @@ const Employees = () => {
               ))}
             </tbody>
           </table>
-          {employees.length === 0 && (
+          {filteredAndSortedEmployees.length === 0 && (
             <div className="text-center py-10 text-slate-500 dark:text-slate-400">
-              No employees found. Import CSV to get started.
+              No employees found matching your filters.
             </div>
           )}
         </div>
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">
-          Showing {employees.length} employee{employees.length !== 1 ? 's' : ''}
+          Showing {filteredAndSortedEmployees.length} of {employees.length} employee{employees.length !== 1 ? 's' : ''}
         </div>
       </div>
 

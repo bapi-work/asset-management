@@ -172,6 +172,27 @@ const AssetDetail = () => {
     </div>
   );
 
+  const getAssignmentOwnerName = (assignment) => {
+    const emp = assignment?.employee || assignment?.employeeSnapshot;
+    const fullName = `${emp?.firstName || ''} ${emp?.lastName || ''}`.trim();
+    if (fullName) {
+      return emp?.employeeId ? `${fullName} (${emp.employeeId})` : fullName;
+    }
+    return assignment?.employeeSnapshot?.email || asset?.oldLoaner || 'Exited Employee';
+  };
+
+  const pastAssignments = history.filter((a) => a.status !== 'active');
+  const latestPastOwner = pastAssignments.length > 0 ? getAssignmentOwnerName(pastAssignments[0]) : '';
+  const latestLoanerHistory = asset?.loanerHistory?.length > 0
+    ? (() => {
+        const last = asset.loanerHistory[asset.loanerHistory.length - 1];
+        return last.employeeId ? `${last.employeeName} (${last.employeeId})` : last.employeeName;
+      })()
+    : '';
+  const displayOldLoaner = asset?.oldLoaner || latestLoanerHistory || latestPastOwner || '-';
+  const activeAssignment = history.find((a) => a.status === 'active');
+  const displayAckForm = asset?.acknowledgementForm || activeAssignment?.acknowledgementForm || history[0]?.acknowledgementForm || '-';
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
@@ -466,15 +487,15 @@ const AssetDetail = () => {
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Extended Specs</h4>
                         <div className="grid grid-cols-2 gap-4">
                           <DetailItem label="Express Service" value={asset.expressServiceCode} />
-                          <DetailItem label="Assigned Date" value={asset.laptopAssignedDate ? formatDate(asset.laptopAssignedDate) : '-'} />
+                          <DetailItem label="Assigned Date" value={asset.laptopAssignedDate ? formatDate(asset.laptopAssignedDate) : (activeAssignment?.assignedDate ? formatDate(activeAssignment.assignedDate) : '-')} />
                           <DetailItem label="License" value={asset.license} />
-                          <DetailItem label="Old Loaner" value={asset.oldLoaner} />
+                          <DetailItem label="Old Loaner" value={displayOldLoaner} />
                         </div>
                       </div>
                       <div className="space-y-4">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact & Forms</h4>
                         <div className="grid grid-cols-2 gap-4">
-                          <DetailItem label="Ack. Form" value={asset.acknowledgementForm} />
+                          <DetailItem label="Ack. Form" value={displayAckForm} />
                         </div>
                       </div>
                     </div>
@@ -644,38 +665,72 @@ const AssetDetail = () => {
             <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Ownership Trail</h3>
             <div className="space-y-6">
-              {history.length === 0 ? (
+              {history.length === 0 && !asset.oldLoaner && (!asset.loanerHistory || asset.loanerHistory.length === 0) ? (
                 <p className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center py-8">Initial Acquisition</p>
               ) : (
-                history.map((assignment, idx) => (
-                  <div key={idx} className="flex gap-4 group">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full border-2 border-white ${assignment.status === 'active' ? 'bg-emerald-500 scale-125' : 'bg-slate-300'}`}></div>
-                      <div className="w-0.5 flex-1 bg-slate-100 dark:bg-slate-800 my-1"></div>
-                    </div>
-                    <div className="flex-1 pb-6">
-                      <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                        {assignment.employee?.firstName} {assignment.employee?.lastName}
-                      </p>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className={`text-[10px] font-black uppercase tracking-tighter ${assignment.status === 'active' ? 'text-emerald-500' : 'text-slate-400'}`}>
-                          {assignment.status === 'active' ? 'Current Owner' : 'Past Owner'}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-300 font-mono">
-                          {formatDate(assignment.assignedDate)}
-                        </span>
-                      </div>
-                    </div>
-                    {['admin', 'manager'].includes(user?.role) && (
-                      <div className="flex flex-col gap-1 items-end mt-1">
-                        {assignment.status === 'active' && (
-                          <button onClick={() => handleReturnAssignment(assignment._id)} className="text-amber-500 hover:text-amber-700 p-2 text-xs font-bold uppercase tracking-widest text-right">Return</button>
+                <>
+                  {history.map((assignment, idx) => {
+                    const emp = assignment.employee || assignment.employeeSnapshot;
+                    const ownerName = getAssignmentOwnerName(assignment);
+                    const isExited = Boolean(emp?.isExited || (!assignment.employee && assignment.employeeSnapshot));
+                    return (
+                      <div key={assignment._id || idx} className="flex gap-4 group">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full border-2 border-white ${assignment.status === 'active' ? 'bg-emerald-500 scale-125' : 'bg-slate-300'}`}></div>
+                          <div className="w-0.5 flex-1 bg-slate-100 dark:bg-slate-800 my-1"></div>
+                        </div>
+                        <div className="flex-1 pb-6">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                              {ownerName}
+                            </p>
+                            {isExited && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+                                Exited
+                              </span>
+                            )}
+                          </div>
+                          {emp?.department && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{emp.department}</p>
+                          )}
+                          {assignment.acknowledgementForm && (
+                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                              Ack: {assignment.acknowledgementForm}
+                            </p>
+                          )}
+                          <div className="flex justify-between items-center mt-1 gap-2 flex-wrap">
+                            <span className={`text-[10px] font-black uppercase tracking-tighter ${assignment.status === 'active' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                              {assignment.status === 'active' ? 'Current Owner' : 'Past Owner'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 font-mono">
+                              {formatDate(assignment.assignedDate)}
+                              {assignment.returnDate ? ` → ${formatDate(assignment.returnDate)}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        {['admin', 'manager'].includes(user?.role) && (
+                          <div className="flex flex-col gap-1 items-end mt-1">
+                            {assignment.status === 'active' && (
+                              <button onClick={() => handleReturnAssignment(assignment._id)} className="text-amber-500 hover:text-amber-700 p-2 text-xs font-bold uppercase tracking-widest text-right">Return</button>
+                            )}
+                            <button onClick={() => handleDeleteAssignment(assignment._id)} className="text-red-500 hover:text-red-700 p-2 text-xs font-bold uppercase tracking-widest text-right">Delete</button>
+                          </div>
                         )}
-                        <button onClick={() => handleDeleteAssignment(assignment._id)} className="text-red-500 hover:text-red-700 p-2 text-xs font-bold uppercase tracking-widest text-right">Delete</button>
                       </div>
-                    )}
-                  </div>
-                ))
+                    );
+                  })}
+                  {history.length === 0 && asset.oldLoaner && (
+                    <div className="flex gap-4 group">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full border-2 border-white bg-slate-300"></div>
+                      </div>
+                      <div className="flex-1 pb-2">
+                        <p className="text-sm font-black text-slate-900 dark:text-white">{asset.oldLoaner}</p>
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">Previous Loaner</span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -4,6 +4,7 @@ import Location from '../models/Location.js';
 import AuditLog from '../models/AuditLog.js';
 import Employee from '../models/Employee.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { escapeRegex, sanitizePayload } from '../utils/security.js';
 import qrcode from 'qrcode';
 import { stringify } from 'csv-stringify';
 import fs from 'fs';
@@ -26,9 +27,9 @@ router.get('/', authenticateToken, async (req, res) => {
     const { status, type, location, assignedTo, search } = req.query;
     let filter = {};
 
-    if (status) filter.status = status;
-    if (type) filter.type = { $regex: new RegExp(`^${type}$`, 'i') };
-    if (location) filter.location = location;
+    if (status) filter.status = String(status);
+    if (type) filter.type = { $regex: new RegExp(`^${escapeRegex(String(type).trim())}$`, 'i') };
+    if (location) filter.location = String(location);
     
     // For employee users, lock down queries to just their own assets
     if (req.user.role === 'employee') {
@@ -40,15 +41,18 @@ router.get('/', authenticateToken, async (req, res) => {
         return res.json([]);
       }
     } else if (assignedTo) {
-      filter.assignedTo = assignedTo;
+      filter.assignedTo = String(assignedTo);
     }
     if (search) {
+      const safeSearch = escapeRegex(String(search).trim());
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { assetTag: { $regex: search, $options: 'i' } },
-        { serialNumber: { $regex: search, $options: 'i' } },
-        { model: { $regex: search, $options: 'i' } },
-        { manufacturer: { $regex: search, $options: 'i' } }
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { assetTag: { $regex: safeSearch, $options: 'i' } },
+        { serialNumber: { $regex: safeSearch, $options: 'i' } },
+        { model: { $regex: safeSearch, $options: 'i' } },
+        { manufacturer: { $regex: safeSearch, $options: 'i' } },
+        { oldLoaner: { $regex: safeSearch, $options: 'i' } },
+        { employeeId: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -104,13 +108,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create asset
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
+    const cleanBody = sanitizePayload(req.body);
+    if (!cleanBody.location) {
+      delete cleanBody.location;
+    }
     const assetData = {
-      ...req.body,
+      ...cleanBody,
       createdBy: req.user.userId
     };
 
     // Generate QR code
-    const qrData = req.body.assetTag || req.body.name;
+    const qrData = cleanBody.assetTag || cleanBody.name;
     assetData.qrCode = await qrcode.toDataURL(qrData);
 
     const asset = new Asset(assetData);
@@ -137,23 +145,44 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
 // Update asset
 router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
-    const asset = await Asset.findById(req.params.id);
+    const asset = await Asset.findById(req.params.id).populate('assignedTo', 'firstName lastName employeeId email department');
     if (!asset) {
       return res.status(404).json({ message: 'Asset not found' });
     }
 
     const oldData = asset.toObject();
+    const prevAssignedEmp = asset.assignedTo && typeof asset.assignedTo === 'object' ? asset.assignedTo : null;
+    const cleanBody = sanitizePayload(req.body, ['_id', '__v', 'createdAt', 'createdBy']);
+
+    if (cleanBody.location === '') {
+      cleanBody.location = null;
+    }
+    if (cleanBody.assignedTo && typeof cleanBody.assignedTo === 'object' && cleanBody.assignedTo._id) {
+      cleanBody.assignedTo = cleanBody.assignedTo._id;
+    }
+    if (cleanBody.location && typeof cleanBody.location === 'object' && cleanBody.location._id) {
+      cleanBody.location = cleanBody.location._id;
+    }
+
+    // Preserve oldLoaner if an assigned asset is being unassigned or marked available/retired
+    if (prevAssignedEmp && (cleanBody.status === 'available' || cleanBody.status === 'retired' || cleanBody.assignedTo === null)) {
+      const fullName = `${prevAssignedEmp.firstName || ''} ${prevAssignedEmp.lastName || ''}`.trim();
+      const empLabel = prevAssignedEmp.employeeId ? `${prevAssignedEmp.employeeId} - ${fullName}` : fullName;
+      if (empLabel && !cleanBody.oldLoaner) {
+        cleanBody.oldLoaner = empLabel;
+      }
+    }
 
     const srHasChanged = (
-      (req.body.serviceType !== undefined && req.body.serviceType !== oldData.serviceType) ||
-      (req.body.serviceStatus !== undefined && req.body.serviceStatus !== oldData.serviceStatus) ||
-      (req.body.damageReason !== undefined && req.body.damageReason !== oldData.damageReason) ||
-      (req.body.damagedItem !== undefined && req.body.damagedItem !== oldData.damagedItem) ||
-      (req.body.serviceResolution !== undefined && req.body.serviceResolution !== oldData.serviceResolution) ||
-      (req.body.serviceCost !== undefined && Number(req.body.serviceCost) !== oldData.serviceCost)
+      (cleanBody.serviceType !== undefined && cleanBody.serviceType !== oldData.serviceType) ||
+      (cleanBody.serviceStatus !== undefined && cleanBody.serviceStatus !== oldData.serviceStatus) ||
+      (cleanBody.damageReason !== undefined && cleanBody.damageReason !== oldData.damageReason) ||
+      (cleanBody.damagedItem !== undefined && cleanBody.damagedItem !== oldData.damagedItem) ||
+      (cleanBody.serviceResolution !== undefined && cleanBody.serviceResolution !== oldData.serviceResolution) ||
+      (cleanBody.serviceCost !== undefined && Number(cleanBody.serviceCost) !== oldData.serviceCost)
     );
 
-    Object.assign(asset, req.body);
+    Object.assign(asset, cleanBody);
     asset.updatedAt = new Date();
 
     if (req.body.status === 'in_maintenance' && oldData.status !== 'in_maintenance') {
@@ -222,7 +251,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
 });
 
 // Delete asset
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
     const asset = await Asset.findByIdAndDelete(req.params.id);
     if (!asset) {
@@ -422,7 +451,9 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin', 'manager'),
       let locationId = null;
       const locationName = item.location || item.Location;
       if (locationName) {
-        const location = await Location.findOne({ name: { $regex: new RegExp(`^${locationName}$`, 'i') } });
+        const location = await Location.findOne({
+          name: { $regex: new RegExp(`^${escapeRegex(String(locationName).trim())}$`, 'i') }
+        });
         if (location) locationId = location._id;
       }
 

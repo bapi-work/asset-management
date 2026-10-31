@@ -2,6 +2,7 @@ import express from 'express';
 import AssetType from '../models/AssetType.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import AuditLog from '../models/AuditLog.js';
+import { escapeRegex, sanitizePayload } from '../utils/security.js';
 
 const router = express.Router();
 
@@ -31,17 +32,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create asset type
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
     const { name, description, depreciationRate, warrantyMonths, customFields } = req.body;
 
-    const existingType = await AssetType.findOne({ name: new RegExp(`^${name}$`, 'i') });
+    const existingType = await AssetType.findOne({ name: new RegExp(`^${escapeRegex(String(name || '').trim())}$`, 'i') });
     if (existingType) {
       return res.status(400).json({ message: 'Asset Type already exists' });
     }
 
     const assetType = new AssetType({
-      name,
+      name: String(name).trim(),
       description,
       depreciationRate,
       warrantyMonths,
@@ -67,7 +68,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
 });
 
 // Update asset type
-router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
     const assetType = await AssetType.findById(req.params.id);
     if (!assetType) {
@@ -75,19 +76,20 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     }
 
     const oldData = assetType.toObject();
-    
+    const cleanBody = sanitizePayload(req.body);
+
     // Prevent updating name to an existing one
-    if (req.body.name && req.body.name.toLowerCase() !== assetType.name.toLowerCase()) {
-        const existingType = await AssetType.findOne({ 
-            name: new RegExp(`^${req.body.name}$`, 'i'),
-            _id: { $ne: assetType._id }
-        });
-        if (existingType) {
-            return res.status(400).json({ message: 'Asset Type with this name already exists' });
-        }
+    if (cleanBody.name && cleanBody.name.toLowerCase() !== assetType.name.toLowerCase()) {
+      const existingType = await AssetType.findOne({
+        name: new RegExp(`^${escapeRegex(String(cleanBody.name).trim())}$`, 'i'),
+        _id: { $ne: assetType._id }
+      });
+      if (existingType) {
+        return res.status(400).json({ message: 'Asset Type with this name already exists' });
+      }
     }
 
-    Object.assign(assetType, req.body);
+    Object.assign(assetType, cleanBody);
     assetType.updatedAt = new Date();
     await assetType.save();
 
@@ -107,27 +109,23 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
   }
 });
 
-// Delete asset type (Soft delete)
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Delete asset type
+router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
     const assetType = await AssetType.findById(req.params.id);
     if (!assetType) {
       return res.status(404).json({ message: 'Asset Type not found' });
     }
 
-    // Instead of permanant delete, just set isActive to false or handle logic
-    // But since we want to be able to remove it from lists, we might want real delete 
-    // if no assets are using it. For now, let's do safe delete check.
-    
-    // Check if any assets use this type (by name matching for now as per mixed architecture)
-    // In a strict relational model we'd check ID. Here we check the string name.
     const Asset = (await import('../models/Asset.js')).default;
-    const assetsUsingType = await Asset.countDocuments({ type: assetType.name }); // imprecise if casing differs, but name is unique
+    const assetsUsingType = await Asset.countDocuments({
+      type: { $regex: new RegExp(`^${escapeRegex(assetType.name)}$`, 'i') }
+    });
 
     if (assetsUsingType > 0) {
-        return res.status(400).json({ 
-            message: `Cannot delete asset type. It is currently assigned to ${assetsUsingType} assets.` 
-        });
+      return res.status(400).json({
+        message: `Cannot delete asset type. It is currently assigned to ${assetsUsingType} assets.`
+      });
     }
 
     await AssetType.findByIdAndDelete(req.params.id);

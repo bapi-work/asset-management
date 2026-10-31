@@ -3,6 +3,7 @@ import Settings from '../models/Settings.js';
 import AuditLog from '../models/AuditLog.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { sendEmail } from '../utils/email.js';
+import { sanitizePayload } from '../utils/security.js';
 
 const router = express.Router();
 
@@ -14,7 +15,14 @@ router.get('/', authenticateToken, async (req, res) => {
       settings = new Settings();
       await settings.save();
     }
-    res.json(settings);
+    const settingsObj = settings.toObject();
+    if (req.user.role !== 'admin') {
+      delete settingsObj.gmailPassword;
+      delete settingsObj.office365Password;
+      delete settingsObj.sendgridApiKey;
+      delete settingsObj.authyApiKey;
+    }
+    res.json(settingsObj);
   } catch (error) {
     console.error('Get settings error:', error);
     res.status(500).json({ message: error.message });
@@ -30,7 +38,7 @@ router.put('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     }
 
     const oldSettings = settings.toObject();
-    Object.assign(settings, req.body);
+    Object.assign(settings, sanitizePayload(req.body));
     settings.updatedAt = new Date();
     await settings.save();
 

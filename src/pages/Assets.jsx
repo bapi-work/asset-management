@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDate } from '../utils/date';
@@ -16,8 +16,13 @@ const Assets = () => {
     return {
       status: params.get('status') || '',
       type: params.get('type') || '',
+      location: params.get('location') || '',
       search: params.get('search') || ''
     };
+  });
+  const [sortConfig, setSortConfig] = useState({
+    key: 'assetTag',
+    direction: 'asc'
   });
   const [showForm, setShowForm] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -33,7 +38,6 @@ const Assets = () => {
     purchaseDate: '',
     vendor: '',
     location: '',
-    // New Fields
     priority: '',
     expressServiceCode: '',
     adapterSerialNumber: '',
@@ -61,6 +65,7 @@ const Assets = () => {
       ...prev,
       status: params.get('status') || '',
       type: params.get('type') || '',
+      location: params.get('location') || prev.location,
       search: params.get('search') || prev.search
     }));
   }, [locationUrl.search]);
@@ -69,16 +74,11 @@ const Assets = () => {
     fetchAssets();
     fetchLocations();
     fetchAssetTypes();
-  }, [filters]);
+  }, []);
 
   const fetchAssets = async () => {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.status) queryParams.append('status', filters.status);
-      if (filters.type) queryParams.append('type', filters.type);
-      if (filters.search) queryParams.append('search', filters.search);
-
-      const response = await axios.get(`/api/assets?${queryParams}`);
+      const response = await axios.get('/api/assets');
       setAssets(response.data);
     } catch (err) {
       console.error('Failed to fetch assets:', err);
@@ -106,6 +106,125 @@ const Assets = () => {
     } catch (err) {
       console.error('Failed to fetch asset types:', err);
     }
+  };
+
+  // Assets matching current status & type & search (used to compute location counts for Test Case 3)
+  const baseMatchingAssets = useMemo(() => {
+    const searchLower = filters.search.trim().toLowerCase();
+    return assets.filter(asset => {
+      if (filters.status && asset.status !== filters.status) return false;
+      if (filters.type && (asset.type || '').toLowerCase() !== filters.type.toLowerCase()) return false;
+      if (searchLower) {
+        const tag = (asset.assetTag || '').toLowerCase();
+        const name = (asset.name || '').toLowerCase();
+        const sn = (asset.serialNumber || '').toLowerCase();
+        const loc = (asset.location?.name || '').toLowerCase();
+        const mfg = (asset.manufacturer || '').toLowerCase();
+        const loaner = (asset.oldLoaner || '').toLowerCase();
+        const assignedEmp = asset.assignedTo
+          ? `${asset.assignedTo.employeeId || ''} ${asset.assignedTo.firstName || ''} ${asset.assignedTo.lastName || ''}`.toLowerCase()
+          : '';
+        return (
+          tag.includes(searchLower) ||
+          name.includes(searchLower) ||
+          sn.includes(searchLower) ||
+          loc.includes(searchLower) ||
+          mfg.includes(searchLower) ||
+          loaner.includes(searchLower) ||
+          assignedEmp.includes(searchLower)
+        );
+      }
+      return true;
+    });
+  }, [assets, filters.status, filters.type, filters.search]);
+
+  // Location breakdown for Test Case 3 (Available Assets Status based on locations)
+  const locationBreakdown = useMemo(() => {
+    const counts = {};
+    locations.forEach(loc => {
+      if (loc.name) counts[loc.name] = 0;
+    });
+    baseMatchingAssets.forEach(asset => {
+      const locName = asset.location?.name || 'Unassigned';
+      counts[locName] = (counts[locName] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .filter(([locName, count]) => count > 0 || locations.some(l => l.name === locName))
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [baseMatchingAssets, locations]);
+
+  // Distinct location options for dropdown
+  const locationOptions = useMemo(() => {
+    const set = new Set();
+    locations.forEach(l => {
+      if (l.name) set.add(l.name);
+    });
+    assets.forEach(a => {
+      if (a.location?.name) set.add(a.location.name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [locations, assets]);
+
+  // Filtered and sorted assets
+  const filteredAndSortedAssets = useMemo(() => {
+    const filtered = baseMatchingAssets.filter(asset => {
+      if (!filters.location) return true;
+      const locName = asset.location?.name || 'Unassigned';
+      const locId = asset.location?._id || '';
+      return locName.toLowerCase() === filters.location.toLowerCase() || locId === filters.location;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortConfig.key === 'value') {
+        const valA = Number(a.currentValue ?? a.purchasePrice ?? 0);
+        const valB = Number(b.currentValue ?? b.purchasePrice ?? 0);
+        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+      }
+
+      if (sortConfig.key === 'warrantyExpiry') {
+        const timeA = a.warrantyExpiry ? new Date(a.warrantyExpiry).getTime() : 0;
+        const timeB = b.warrantyExpiry ? new Date(b.warrantyExpiry).getTime() : 0;
+        return sortConfig.direction === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+
+      const getVal = (item, key) => {
+        switch (key) {
+          case 'assetTag':
+            return (item.assetTag || '').toLowerCase();
+          case 'name':
+            return (item.name || '').toLowerCase();
+          case 'type':
+            return (item.type || '').toLowerCase();
+          case 'status':
+            return (item.status || '').toLowerCase();
+          case 'location':
+            return (item.location?.name || '').toLowerCase();
+          default:
+            return (item[key] || '').toString().toLowerCase();
+        }
+      };
+
+      const valA = getVal(a, sortConfig.key);
+      const valB = getVal(b, sortConfig.key);
+      const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      return sortConfig.direction === 'asc' ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [baseMatchingAssets, filters.location, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return <span className="ml-1 text-slate-400 opacity-60">↕</span>;
+    }
+    return <span className="ml-1 text-blue-500 font-bold">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const handleCreateAsset = async (e) => {
@@ -143,7 +262,6 @@ const Assets = () => {
         warrantyStatus: 'inactive',
         photoUrl: ''
       });
-      // Refresh assets to show newly created one
       fetchAssets();
     } catch (err) {
       console.error('Failed to create asset:', err);
@@ -178,7 +296,7 @@ const Assets = () => {
 
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(assets.map(asset => asset._id));
+      setSelectedIds(filteredAndSortedAssets.map(asset => asset._id));
     } else {
       setSelectedIds([]);
     }
@@ -205,7 +323,7 @@ const Assets = () => {
 
     const csvContent = [
       headers.join(','),
-      ...assets.map(asset => [
+      ...filteredAndSortedAssets.map(asset => [
         asset.assetTag, asset.name, asset.type, asset.status, asset.location?.name || '', asset.serialNumber,
         asset.processor, asset.ram, asset.storage,
         asset.purchasePrice, asset.manufacturer, asset.vendor, asset.supplierName,
@@ -294,6 +412,8 @@ const Assets = () => {
     warrantyExpiry: '2025-01-01'
   };
 
+  const hasActiveFilters = Boolean(filters.search || filters.status || filters.type || filters.location);
+
   if (loading) {
     return <div className="p-6">Loading assets...</div>;
   }
@@ -349,14 +469,74 @@ const Assets = () => {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex gap-4 flex-wrap">
+      {/* Location Summary Pills (Test Case 3: Available / Filtered Assets Status based on locations) */}
+      {locationBreakdown.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {filters.status === 'available'
+                ? 'Available Assets Status Based on Locations'
+                : filters.status === 'assigned'
+                  ? 'Assigned Assets Status Based on Locations'
+                  : 'Assets Status Based on Locations'}
+            </h3>
+            {filters.location && (
+              <button
+                type="button"
+                onClick={() => setFilters({ ...filters, location: '' })}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
+                Show All Locations
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilters({ ...filters, location: '' })}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
+                !filters.location
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span>All Locations</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${!filters.location ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
+                {baseMatchingAssets.length}
+              </span>
+            </button>
+            {locationBreakdown.map(([locName, count]) => {
+              const isSelected = filters.location.toLowerCase() === locName.toLowerCase();
+              return (
+                <button
+                  key={locName}
+                  type="button"
+                  onClick={() => setFilters({ ...filters, location: isSelected ? '' : locName })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{locName}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${isSelected ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filters & Sort Controls */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex gap-3 flex-wrap items-center">
         <input
           type="text"
-          placeholder="Search assets..."
+          placeholder="Search assets by tag, model, S/N, location, loaner..."
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          className="flex-1 min-w-200 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="flex-1 min-w-[220px] px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
         />
         <select
           value={filters.status}
@@ -371,6 +551,16 @@ const Assets = () => {
           <option value="lost">Lost</option>
         </select>
         <select
+          value={filters.location}
+          onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+          className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white outline-none"
+        >
+          <option value="">All Locations</option>
+          {locationOptions.map(locName => (
+            <option key={locName} value={locName}>{locName}</option>
+          ))}
+        </select>
+        <select
           value={filters.type}
           onChange={(e) => setFilters({ ...filters, type: e.target.value })}
           className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white outline-none"
@@ -380,6 +570,39 @@ const Assets = () => {
             <option key={type._id} value={type.name}>{type.name}</option>
           ))}
         </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortConfig.key}
+            onChange={(e) => setSortConfig({ ...sortConfig, key: e.target.value })}
+            className="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white outline-none"
+            title="Sort By"
+          >
+            <option value="assetTag">Sort: Asset Tag</option>
+            <option value="name">Sort: Asset Model</option>
+            <option value="type">Sort: Type</option>
+            <option value="status">Sort: Status</option>
+            <option value="location">Sort: Location</option>
+            <option value="value">Sort: Value</option>
+            <option value="warrantyExpiry">Sort: Warranty</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }))}
+            className="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium whitespace-nowrap"
+            title="Toggle Sort Direction"
+          >
+            {sortConfig.direction === 'asc' ? '↑ Asc' : '↓ Desc'}
+          </button>
+        </div>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => setFilters({ status: '', type: '', location: '', search: '' })}
+            className="px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:underline whitespace-nowrap"
+          >
+            Reset Filters
+          </button>
+        )}
       </div>
 
       {/* Create Form */}
@@ -531,7 +754,7 @@ const Assets = () => {
             />
             <input
               type="text"
-              placeholder="Acknowledgement Form"
+              placeholder="Laptop Acknowledgement Form"
               value={formData.acknowledgementForm}
               onChange={(e) => setFormData({ ...formData, acknowledgementForm: e.target.value })}
               className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
@@ -628,29 +851,64 @@ const Assets = () => {
             <thead className="bg-slate-50 dark:bg-slate-950">
               <tr className="border-b border-slate-200 dark:border-slate-800">
                 <th className="px-6 py-4 text-left whitespace-nowrap">
-                  <input 
-                    type="checkbox" 
-                    checked={assets.length > 0 && selectedIds.length === assets.length}
+                  <input
+                    type="checkbox"
+                    checked={filteredAndSortedAssets.length > 0 && selectedIds.length === filteredAndSortedAssets.length}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
                   />
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Asset Tag</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Asset Model</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Location</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Value</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Warranty</th>
+                <th
+                  onClick={() => handleSort('assetTag')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Asset Tag {renderSortIcon('assetTag')}
+                </th>
+                <th
+                  onClick={() => handleSort('name')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Asset Model {renderSortIcon('name')}
+                </th>
+                <th
+                  onClick={() => handleSort('type')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Type {renderSortIcon('type')}
+                </th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Status {renderSortIcon('status')}
+                </th>
+                <th
+                  onClick={() => handleSort('location')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Location {renderSortIcon('location')}
+                </th>
+                <th
+                  onClick={() => handleSort('value')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Value {renderSortIcon('value')}
+                </th>
+                <th
+                  onClick={() => handleSort('warrantyExpiry')}
+                  className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none"
+                >
+                  Warranty {renderSortIcon('warrantyExpiry')}
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {assets.map(asset => (
+              {filteredAndSortedAssets.map(asset => (
                 <tr key={asset._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedIds.includes(asset._id)}
                       onChange={() => toggleSelect(asset._id)}
                       className="w-4 h-4 rounded border-slate-300 dark:border-slate-700"
@@ -697,14 +955,14 @@ const Assets = () => {
               ))}
             </tbody>
           </table>
-          {assets.length === 0 && (
+          {filteredAndSortedAssets.length === 0 && (
             <div className="text-center py-10 text-slate-500 dark:text-slate-400">
-              No assets found. Upload a CSV or create one manually.
+              No assets found matching your filters.
             </div>
           )}
         </div>
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">
-          Showing {assets.length} asset{assets.length !== 1 ? 's' : ''}
+          Showing {filteredAndSortedAssets.length} of {assets.length} asset{assets.length !== 1 ? 's' : ''}
         </div>
       </div>
 

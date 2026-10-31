@@ -2,36 +2,58 @@ import express from 'express';
 import Employee from '../models/Employee.js';
 import User from '../models/User.js';
 import Location from '../models/Location.js';
+import Asset from '../models/Asset.js';
+import Assignment from '../models/Assignment.js';
 import AuditLog from '../models/AuditLog.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { escapeRegex, sanitizePayload } from '../utils/security.js';
 
 const router = express.Router();
 
 // Get all employees
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { department, isActive, search } = req.query;
+    const { department, location, employmentType, isActive, search, sortBy, sortOrder } = req.query;
     let filter = {};
 
     if (req.user.role === 'employee') {
       filter.user = req.user.userId;
     }
 
-    if (department) filter.department = department;
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
+    if (department) {
+      filter.department = { $regex: new RegExp(`^${escapeRegex(String(department).trim())}$`, 'i') };
+    }
+    if (location) {
+      filter.location = String(location);
+    }
+    if (employmentType) {
+      filter.employmentType = String(employmentType);
+    }
+    if (isActive !== undefined && isActive !== '') {
+      filter.isActive = isActive === 'true';
+    }
     if (search) {
+      const safeSearch = escapeRegex(String(search).trim());
       filter.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { employeeId: { $regex: search, $options: 'i' } },
-        { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: search, options: "i" } } }
+        { firstName: { $regex: safeSearch, $options: 'i' } },
+        { lastName: { $regex: safeSearch, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
+        { employeeId: { $regex: safeSearch, $options: 'i' } },
+        { department: { $regex: safeSearch, $options: 'i' } },
+        { designation: { $regex: safeSearch, $options: 'i' } },
+        { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: safeSearch, options: 'i' } } }
       ];
     }
 
+    const allowedSortFields = ['employeeId', 'firstName', 'lastName', 'email', 'department', 'designation', 'employmentType', 'createdAt'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
     const employees = await Employee.find(filter)
       .populate('manager', 'firstName lastName')
-      .populate('user', 'username email role');
+      .populate('location', 'name currency country')
+      .populate('user', 'username email role')
+      .sort({ [sortField]: sortDirection });
 
     res.json(employees);
   } catch (error) {
@@ -45,6 +67,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id)
       .populate('manager', 'firstName lastName')
+      .populate('location', 'name currency country')
       .populate('user', 'username email role')
       .populate('assignedAssets');
 
@@ -66,18 +89,21 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create employee
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
-    const { createLoginAccess, username, password, ...employeeData } = req.body;
+    const { createLoginAccess, username, password, ...rawEmployeeData } = req.body;
+    const employeeData = sanitizePayload(rawEmployeeData);
 
     if (createLoginAccess) {
       if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required to create login access.' });
       }
-      const existingUser = await User.findOne({ username });
+      const existingUser = await User.findOne({
+        username: { $regex: new RegExp(`^${escapeRegex(String(username).trim())}$`, 'i') }
+      });
       if (existingUser) {
         return res.status(400).json({ message: 'Username already exists.' });
       }
       const user = new User({
-        username,
+        username: String(username).trim(),
         email: employeeData.email,
         password,
         role: 'employee',
@@ -87,7 +113,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
       employeeData.user = user._id;
     }
 
-    if (!employeeData.employeeId || employeeData.employeeId.trim() === '') {
+    if (!employeeData.employeeId || String(employeeData.employeeId).trim() === '') {
       delete employeeData.employeeId;
     }
 
@@ -102,7 +128,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
       entityName: `${employee.firstName} ${employee.lastName}`
     });
 
-    await employee.populate('manager user');
+    await employee.populate('manager location user');
     res.status(201).json(employee);
   } catch (error) {
     console.error('Create employee error:', error);
@@ -119,14 +145,33 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
     }
 
     const oldData = employee.toObject();
+    const updateData = sanitizePayload(req.body, ['_id', '__v', 'createdAt', 'user']);
 
-    if (req.body.employeeId !== undefined && (req.body.employeeId === null || req.body.employeeId.trim() === '')) {
-      delete req.body.employeeId;
-      employee.employeeId = null; 
+    if (updateData.employeeId !== undefined && (updateData.employeeId === null || String(updateData.employeeId).trim() === '')) {
+      delete updateData.employeeId;
+      employee.employeeId = null;
     }
 
-    Object.assign(employee, req.body);
+    Object.assign(employee, updateData);
+    employee.updatedAt = new Date();
     await employee.save();
+    await employee.populate('manager location user');
+
+    // Keep employeeSnapshot in sync on historical and active assignments
+    await Assignment.updateMany(
+      { employee: employee._id },
+      {
+        $set: {
+          'employeeSnapshot.employeeId': employee.employeeId || '',
+          'employeeSnapshot.firstName': employee.firstName || '',
+          'employeeSnapshot.lastName': employee.lastName || '',
+          'employeeSnapshot.email': employee.email || '',
+          'employeeSnapshot.department': employee.department || '',
+          'employeeSnapshot.designation': employee.designation || '',
+          'employeeSnapshot.locationName': employee.location?.name || ''
+        }
+      }
+    );
 
     await AuditLog.create({
       user: req.user.userId,
@@ -137,7 +182,6 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
       changes: { before: oldData, after: employee.toObject() }
     });
 
-    await employee.populate('manager user');
     res.json(employee);
   } catch (error) {
     console.error('Update employee error:', error);
@@ -145,23 +189,106 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (
   }
 });
 
-// Delete employee
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Delete employee (preserves all loaner & ownership history on Assets and Assignments)
+router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
   try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    const employee = await Employee.findById(req.params.id).populate('location', 'name');
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
+
+    const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
+    const empLabel = employee.employeeId ? `${employee.employeeId} - ${fullName}` : fullName;
+
+    const snapshot = {
+      employeeId: employee.employeeId || '',
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
+      email: employee.email || '',
+      department: employee.department || '',
+      designation: employee.designation || '',
+      locationName: employee.location?.name || '',
+      isExited: true
+    };
+
+    // 1. Preserve employee details on all Assignments for this employee
+    const empAssignments = await Assignment.find({ employee: employee._id });
+    const affectedAssetIds = new Set();
+
+    for (const assignment of empAssignments) {
+      if (assignment.asset) {
+        affectedAssetIds.add(assignment.asset.toString());
+      }
+      assignment.employeeSnapshot = snapshot;
+      if (assignment.status === 'active') {
+        assignment.status = 'returned';
+        assignment.returnDate = new Date();
+        assignment.returnedBy = req.user.userId;
+        assignment.returnNotes = assignment.returnNotes
+          ? `${assignment.returnNotes} | Auto-returned upon employee exit`
+          : 'Auto-returned upon employee exit';
+      }
+      assignment.updatedAt = new Date();
+      await assignment.save();
+    }
+
+    // 2. Also find any Assets directly referencing this employee in assignedTo
+    const assignedAssets = await Asset.find({ assignedTo: employee._id });
+    for (const asset of assignedAssets) {
+      affectedAssetIds.add(asset._id.toString());
+    }
+
+    // 3. Preserve Old Loaner details & loanerHistory on all affected Assets
+    if (affectedAssetIds.size > 0) {
+      const assetsToUpdate = await Asset.find({ _id: { $in: Array.from(affectedAssetIds) } });
+      for (const asset of assetsToUpdate) {
+        const currentOldLoaner = (asset.oldLoaner || '').trim();
+        const isEmptyLoaner = !currentOldLoaner || ['none', 'na', 'n/a', '-'].includes(currentOldLoaner.toLowerCase());
+
+        if (isEmptyLoaner) {
+          asset.oldLoaner = empLabel;
+        } else if (!currentOldLoaner.toLowerCase().includes(fullName.toLowerCase())) {
+          asset.oldLoaner = `${empLabel} (Prev: ${currentOldLoaner})`;
+        }
+
+        if (!Array.isArray(asset.loanerHistory)) {
+          asset.loanerHistory = [];
+        }
+        asset.loanerHistory.push({
+          employeeId: employee.employeeId || '',
+          employeeName: fullName,
+          email: employee.email || '',
+          department: employee.department || '',
+          assignedDate: asset.laptopAssignedDate || undefined,
+          returnedDate: new Date(),
+          notes: 'Preserved automatically when employee exited / was deleted'
+        });
+
+        if (asset.assignedTo && asset.assignedTo.toString() === employee._id.toString()) {
+          asset.assignedTo = null;
+          if (asset.status === 'assigned') {
+            asset.status = 'available';
+          }
+        }
+        asset.updatedAt = new Date();
+        await asset.save();
+      }
+    }
+
+    await Employee.findByIdAndDelete(req.params.id);
 
     await AuditLog.create({
       user: req.user.userId,
       action: 'employee_deleted',
       entityType: 'employee',
       entityId: employee._id,
-      entityName: `${employee.firstName} ${employee.lastName}`
+      entityName: empLabel,
+      changes: { before: snapshot }
     });
 
-    res.json({ message: 'Employee deleted successfully' });
+    res.json({
+      message: 'Employee deleted successfully. Asset loaner history and previous owner records have been preserved.'
+    });
   } catch (error) {
     console.error('Delete employee error:', error);
     res.status(500).json({ message: error.message });
@@ -202,7 +329,9 @@ router.post('/bulk-upload/csv', authenticateToken, authorizeRole('admin', 'manag
 
       let locationId = null;
       if (locationName) {
-        const loc = await Location.findOne({ name: { $regex: new RegExp(`^${locationName}$`, 'i') } });
+        const loc = await Location.findOne({
+          name: { $regex: new RegExp(`^${escapeRegex(String(locationName).trim())}$`, 'i') }
+        });
         if (loc) {
           locationId = loc._id;
         }
@@ -211,15 +340,15 @@ router.post('/bulk-upload/csv', authenticateToken, authorizeRole('admin', 'manag
       // Check if employee exists to update or skip
       if (employeeId && String(employeeId).trim() !== '') {
         const existing = await Employee.findOne({ employeeId: String(employeeId).trim() });
-        if (existing) continue; // In bulk upload, skip existing or handle differently if needed.
+        if (existing) continue;
       }
 
       const employeeObj = {
-        firstName: firstName,
-        lastName: lastName || '',
-        email: email,
-        department: department,
-        designation: designation,
+        firstName: String(firstName).trim(),
+        lastName: lastName ? String(lastName).trim() : '',
+        email: String(email).trim().toLowerCase(),
+        department: department ? String(department).trim() : '',
+        designation: designation ? String(designation).trim() : '',
         employmentType: employmentType || 'full_time',
         location: locationId
       };
@@ -229,7 +358,6 @@ router.post('/bulk-upload/csv', authenticateToken, authorizeRole('admin', 'manag
       }
 
       const employee = new Employee(employeeObj);
-
       await employee.save();
       uploadedEmployees.push(employee);
     }

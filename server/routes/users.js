@@ -2,14 +2,21 @@ import express from 'express';
 import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
-import bcrypt from 'bcryptjs';
+import { sanitizePayload } from '../utils/security.js';
 
 const router = express.Router();
+
+const sanitizeUserOutput = (userDoc) => {
+    const obj = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+    delete obj.password;
+    delete obj.twoFactorSecret;
+    return obj;
+};
 
 // Get all users
 router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     try {
-        const users = await User.find().select('-password');
+        const users = await User.find().select('-password -twoFactorSecret');
         res.json(users);
     } catch (error) {
         console.error('Get users error:', error);
@@ -20,7 +27,11 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
 // Create user
 router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     try {
-        const { username, email, password, role } = req.body;
+        const body = sanitizePayload(req.body);
+        const username = String(body.username || '').trim();
+        const email = String(body.email || '').trim();
+        const password = body.password ? String(body.password) : '';
+        const role = String(body.role || 'viewer');
 
         // Check if exists
         const existing = await User.findOne({ $or: [{ username }, { email }] });
@@ -39,7 +50,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
             entityName: user.username
         });
 
-        res.status(201).json(user);
+        res.status(201).json(sanitizeUserOutput(user));
     } catch (error) {
         console.error('Create user error:', error);
         res.status(500).json({ message: error.message });
@@ -63,18 +74,21 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin'), async (req
                     continue; // Skip invalid
                 }
 
+                const username = String(item.username).trim();
+                const email = String(item.email).trim();
+
                 // Check existence
-                const existing = await User.findOne({ $or: [{ username: item.username }, { email: item.email }] });
+                const existing = await User.findOne({ $or: [{ username }, { email }] });
                 if (existing) {
                     results.failed++;
                     continue;
                 }
 
                 const user = new User({
-                    username: item.username,
-                    email: item.email,
-                    password: item.password, // Model pre-save hook handles hashing
-                    role: item.role,
+                    username,
+                    email,
+                    password: String(item.password), // Model pre-save hook handles hashing
+                    role: String(item.role),
                     isActive: true
                 });
                 await user.save();
@@ -102,17 +116,18 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin'), async (req
 // Update user
 router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
     try {
-        const { username, email, role, isActive } = req.body;
+        const body = sanitizePayload(req.body);
+        const { username, email, role, isActive } = body;
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        if (username) user.username = username;
-        if (email) user.email = email;
-        if (role) user.role = role;
-        if (isActive !== undefined) user.isActive = isActive;
+        if (username) user.username = String(username).trim();
+        if (email) user.email = String(email).trim();
+        if (role) user.role = String(role);
+        if (isActive !== undefined) user.isActive = Boolean(isActive);
 
-        if (req.body.password) {
-            user.password = req.body.password; // pre-save hook will hash
+        if (body.password) {
+            user.password = String(body.password); // pre-save hook will hash
         }
 
         await user.save();
@@ -125,7 +140,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
             entityName: user.username
         });
 
-        res.json(user);
+        res.json(sanitizeUserOutput(user));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

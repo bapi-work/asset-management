@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { authenticateToken } from '../middleware/auth.js';
 import AuditLog from '../models/AuditLog.js';
+import { escapeRegex } from '../utils/security.js';
 
 const router = express.Router();
 
@@ -60,13 +61,13 @@ router.post('/login', async (req, res) => {
       return res.status(503).json({ message: 'Database connection is currently unavailable. Please try again later.' });
     }
 
-    if (!username || !password) {
+    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ message: 'Username and password are required' });
     }
 
-    // Use case-insensitive regex for username matching to prevent capitalization lockouts
+    // Use escaped case-insensitive regex for username matching to prevent regex injection & capitalization lockouts
     const user = await User.findOne({ 
-      username: { $regex: new RegExp(`^${username}$`, 'i') } 
+      username: { $regex: new RegExp(`^${escapeRegex(username.trim())}$`, 'i') } 
     }).select('+password');
     
     if (!user) {

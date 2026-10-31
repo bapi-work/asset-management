@@ -31,12 +31,12 @@ const createTransporter = async () => {
                 transporterConfig = {
                     host: 'smtp.office365.com',
                     port: 587,
-                    secure: false, // TLS
+                    secure: false, // STARTTLS
                     auth: {
                         user: settings.office365Email,
                         pass: settings.office365Password
                     },
-                    tls: { ciphers: 'SSLv3' }
+                    tls: { minVersion: 'TLSv1.2' }
                 };
                 break;
 

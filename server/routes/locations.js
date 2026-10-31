@@ -2,6 +2,7 @@ import express from 'express';
 import Location from '../models/Location.js';
 import AuditLog from '../models/AuditLog.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { sanitizePayload } from '../utils/security.js';
 
 const router = express.Router();
 
@@ -19,7 +20,8 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create location
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
     try {
-        const location = new Location(req.body);
+        const locationData = sanitizePayload(req.body);
+        const location = new Location(locationData);
         await location.save();
 
         await AuditLog.create({
@@ -40,7 +42,8 @@ router.post('/', authenticateToken, authorizeRole('admin', 'manager'), async (re
 // Update location
 router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), async (req, res) => {
     try {
-        const location = await Location.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updateData = sanitizePayload(req.body);
+        const location = await Location.findByIdAndUpdate(req.params.id, updateData, { new: true });
         if (!location) return res.status(404).json({ message: 'Location not found' });
 
         await AuditLog.create({
@@ -89,7 +92,7 @@ router.post('/import/csv', authenticateToken, authorizeRole('admin', 'manager'),
         for (const item of data) {
             let currency = item.currency;
             if (!currency && item.country) {
-                const country = item.country.toLowerCase();
+                const country = String(item.country).toLowerCase();
                 if (country.includes('india')) currency = 'INR';
                 else if (country.includes('malaysia')) currency = 'MYR';
                 else if (country.includes('singapore')) currency = 'SGD';
